@@ -18,13 +18,32 @@
 import { randomUUID } from 'node:crypto'
 
 /**
- * Job status lifecycle:
- * - pending: Job created, waiting to be picked up by worker
- * - processing: AI worker is processing the video
- * - completed: Processing finished, clips available
- * - failed: Processing failed
+ * Job status lifecycle - detailed progress for frontend:
+ * - queued: Job created, waiting for worker to pick up
+ * - downloading: Worker is downloading the video
+ * - transcribing: Extracting audio and transcribing with Whisper
+ * - detecting_clips: AI detecting viral moments / emotional hooks
+ * - generating_clips: Creating video clips from segments
+ * - adding_subtitles: Burning subtitles into clips
+ * - completed: All clips ready
+ * - failed: Error occurred
  */
-export type JobStatus = 'pending' | 'processing' | 'completed' | 'failed'
+export type JobStatus =
+  | 'queued'
+  | 'downloading'
+  | 'transcribing'
+  | 'detecting_clips'
+  | 'generating_clips'
+  | 'adding_subtitles'
+  | 'completed'
+  | 'failed'
+
+/** Optional processing settings from the frontend */
+export interface JobSettings {
+  aspect_ratio?: string
+  clip_length?: string
+  caption_style?: string
+}
 
 /**
  * Represents a video processing job
@@ -35,6 +54,8 @@ export interface Job {
   status: JobStatus
   createdAt: Date
   updatedAt: Date
+  /** Processing settings (aspect ratio, clip length, caption style) */
+  settings?: JobSettings
   /** Error message when status is 'failed' */
   error?: string
   /** Clips produced by the AI worker (when status is 'completed') */
@@ -77,16 +98,20 @@ export class JobService {
   /**
    * Create a new job and store it in memory
    */
-  createJob(videoUrl: string): Job {
+  createJob(
+    videoUrl: string,
+    settings?: JobSettings
+  ): Job {
     const id = this.generateJobId()
     const now = new Date()
 
     const job: Job = {
       id,
       videoUrl,
-      status: 'pending',
+      status: 'queued',
       createdAt: now,
       updatedAt: now,
+      settings,
     }
 
     jobsStore.set(id, job)

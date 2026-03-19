@@ -26,6 +26,18 @@ Set in `.env`:
 
 - `REDIS_HOST` - Redis host (default: localhost)
 - `REDIS_PORT` - Redis port (default: 6379)
+- `R2_ACCOUNT_ID`, `R2_ACCESS_KEY`, `R2_SECRET_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL` - Cloudflare R2 (optional)
+
+### Cloudflare R2 Credentials
+
+1. Log in at https://dash.cloudflare.com
+2. Go to **R2 Object Storage** (left sidebar)
+3. Click **Manage R2 API Tokens**
+4. **Create API token** → select "Object Read & Write" for your bucket
+5. Copy the **Access Key ID** and **Secret Access Key** (secret is shown once only!)
+6. **Account ID**: visible in the R2 dashboard URL or right sidebar
+7. **Bucket name**: create or select a bucket
+8. **Public URL**: Bucket Settings → Public access → enable and copy the URL (e.g. `https://pub-xxx.r2.dev`)
 
 ## Python AI Worker Integration
 

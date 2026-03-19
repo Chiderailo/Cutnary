@@ -30,6 +30,9 @@ export function registerApiRoutes() {
       // GET /api/job/:id - get job status
       router.get('job/:id', [JobController, 'show'])
 
+      // POST /api/job/:id/status - worker reports progress (downloading, transcribing, etc.)
+      router.post('job/:id/status', [JobController, 'updateStatus'])
+
       // POST /api/job/:id/complete - worker callback (Python AI worker reports completion)
       router.post('job/:id/complete', [JobController, 'complete'])
 

@@ -31,6 +31,18 @@ export interface Registry {
       errorResponse: unknown
     }
   }
+  'job.update_status': {
+    methods: ["POST"]
+    pattern: '/api/job/:id/status'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: unknown
+      errorResponse: unknown
+    }
+  }
   'job.complete': {
     methods: ["POST"]
     pattern: '/api/job/:id/complete'

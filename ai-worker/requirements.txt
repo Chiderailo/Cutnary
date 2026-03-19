@@ -1,7 +1,8 @@
-﻿yt-dlp
+yt-dlp
 openai
 openai-whisper
 opencv-python
 redis
 python-dotenv
+requests
 numpy

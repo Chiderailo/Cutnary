@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base dark theme */
+@layer base {
+  body {
+    @apply bg-[#0a0a0b] text-zinc-100 antialiased;
+  }
+}
+
+/* Smooth transitions globally */
+* {
+  @apply transition-colors duration-200;
+}

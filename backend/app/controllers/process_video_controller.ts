@@ -24,25 +24,28 @@ import { processVideoValidator } from '#validators/process_video'
 export default class ProcessVideoController {
   /**
    * POST /api/process-video
-   * Body: { video_url: string }
+   * Body: { video_url, aspect_ratio?, clip_length?, caption_style? }
    * Creates a job, pushes to Redis queue (video_jobs), returns job ID and status
    */
   async store({ request, response }: HttpContext) {
-    // Validate URL input - returns 422 if invalid
-    const { video_url: videoUrl } = await request.validateUsing(processVideoValidator)
+    const payload = await request.validateUsing(processVideoValidator)
+    const { video_url: videoUrl, aspect_ratio, clip_length, caption_style } = payload
+
+    const settings =
+      aspect_ratio || clip_length || caption_style
+        ? { aspect_ratio, clip_length, caption_style }
+        : undefined
 
     // Generate unique job ID and store job in memory
-    const job = jobService.createJob(videoUrl)
+    const job = jobService.createJob(videoUrl, settings)
 
-    // Push to Redis queue (video_jobs) with payload:
-    // { job_id, video_url, status: "queued" }
-    // The Python worker consumes from this queue and receives this payload
-    await addVideoProcessingJob(job.id, videoUrl)
+    // Push to Redis queue (video_jobs) with payload for the Python worker
+    await addVideoProcessingJob(job.id, videoUrl, settings)
 
     return response.status(202).json({
       success: true,
       job_id: job.id,
-      status: job.status,
+      status: job.status, // "queued"
       message: 'Video processing job queued successfully',
     })
   }

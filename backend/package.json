@@ -65,6 +65,7 @@
     "@adonisjs/lucid": "^22.0.0",
     "@adonisjs/session": "^8.0.0",
     "@adonisjs/shield": "^9.0.0",
+    "@aws-sdk/client-s3": "^3.1012.0",
     "@japa/api-client": "^3.2.1",
     "@tuyau/core": "^1.0.0",
     "@vinejs/vine": "^4.3.0",

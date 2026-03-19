@@ -12,6 +12,7 @@ import { randomUUID } from 'node:crypto'
 import type { HttpContext } from '@adonisjs/core/http'
 import { jobService } from '#services/job_service'
 import { jobCompleteValidator } from '#validators/job_complete'
+import { jobStatusValidator } from '#validators/job_status'
 import type { Clip } from '#services/job_service'
 
 export default class JobController {
@@ -41,6 +42,32 @@ export default class JobController {
         error: job.error,
         clips: job.clips,
       },
+    })
+  }
+
+  /**
+   * POST /api/job/:id/status
+   * Worker reports progress at each pipeline step
+   * Body: { status: "downloading" | "transcribing" | ... }
+   */
+  async updateStatus({ params, request, response }: HttpContext) {
+    const { status, error } = await request.validateUsing(jobStatusValidator)
+    const job = jobService.getJob(params.id)
+
+    if (!job) {
+      return response.status(404).json({
+        success: false,
+        error: 'Job not found',
+        job_id: params.id,
+      })
+    }
+
+    jobService.updateJobStatus(params.id, status, { error })
+
+    return response.json({
+      success: true,
+      job_id: params.id,
+      status,
     })
   }
 

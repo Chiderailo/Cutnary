@@ -1,45 +1,54 @@
+"""
+Clip generation - landscape and portrait.
+Portrait uses face detection to center crop on faces; falls back to center crop.
+"""
+
 import subprocess
 import os
-from face_tracking import detect_face_center
+
+from face_tracking import detect_face_center, get_video_dimensions
 
 CLIP_DIR = "../storage/clips"
+PORTRAIT_W, PORTRAIT_H = 1080, 1920
 
 
-def portrait_crop_filter(video_path):
-
-    face_center = detect_face_center(video_path)
-
-    if face_center is None:
+def _portrait_crop_filter(
+    video_path: str, start_sec: float, end_sec: float
+) -> str:
+    """
+    Build ffmpeg crop filter for 9:16 portrait.
+    - If faces found: crop centered on average face X, then scale to 1080x1920
+    - If no faces: center crop, then scale to fill 1080x1920 (no black bars)
+    Samples every 30 frames for face position.
+    """
+    dims = get_video_dimensions(video_path)
+    if not dims:
         return "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"
 
-    x = int(face_center - 540)
+    src_w, src_h = dims
+    # 9:16 crop: use full height, width = height * 9/16
+    crop_w = int(src_h * 9 / 16)
+    crop_h = src_h
 
-    if x < 0:
-        x = 0
+    if crop_w > src_w:
+        crop_w = src_w
+        crop_h = int(src_w * 16 / 9)
 
-    return f"crop=1080:1920:{x}:0"
+    face_center = detect_face_center(
+        video_path,
+        start_sec=start_sec,
+        end_sec=end_sec,
+        sample_interval=30,
+    )
 
+    if face_center is not None:
+        face_x = int(face_center - crop_w / 2)
+    else:
+        face_x = (src_w - crop_w) // 2
 
-def dynamic_crop_filter(video_path):
-    from speaker_tracking import detect_speaker_positions
+    face_x = max(0, min(face_x, src_w - crop_w))
 
-    speakers = detect_speaker_positions(video_path)
-
-    if not speakers:
-        return "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"
-
-    avg_center = sum(
-        center
-        for _, centers in speakers
-        for center in centers
-    ) / sum(len(c) for _, c in speakers)
-
-    x = int(avg_center - 540)
-
-    if x < 0:
-        x = 0
-
-    return f"crop=1080:1920:{x}:0"
+    return f"crop={crop_w}:{crop_h}:{face_x}:0,scale={PORTRAIT_W}:{PORTRAIT_H}"
 
 
 def generate_landscape_clip(video_path, start, end, name, subtitle=None):
@@ -70,18 +79,24 @@ def generate_landscape_clip(video_path, start, end, name, subtitle=None):
     return output
 
 
-def generate_portrait_clip(video_path, start, end, name, subtitle=None):
-
+def generate_portrait_clip(
+    video_path: str, start: float, end: float, name: str, subtitle: str | None = None
+) -> str:
+    """
+    Generate 9:16 portrait clip (1080x1920) for TikTok/Reels.
+    - Detects faces; crops 9:16 region centered on face (sampled every 30 frames)
+    - Falls back to center crop if no faces
+    - No black bars; fills frame
+    - Subtitles (ass) applied after crop/scale
+    """
     os.makedirs(CLIP_DIR, exist_ok=True)
-
     output = f"{CLIP_DIR}/{name}_portrait.mp4"
 
-    # Scale to 1080 width (maintain aspect), then pad to 1080x1920 portrait
-    # Works for any source size (e.g. 640x360 landscape)
-    filter_chain = "scale=1080:-2,pad=1080:1920:(ow-iw)/2:(oh-ih)/2"
-
+    crop_filter = _portrait_crop_filter(video_path, start, end)
+    filter_chain = crop_filter
     if subtitle:
-        filter_chain += f",ass={subtitle}"
+        ass_path = subtitle.replace("\\", "/")
+        filter_chain += f",ass={ass_path}"
 
     command = [
         "ffmpeg",
@@ -92,11 +107,9 @@ def generate_portrait_clip(video_path, start, end, name, subtitle=None):
         "-vf", filter_chain,
         "-preset", "fast",
         "-crf", "23",
-        output
+        output,
     ]
-
     subprocess.run(command, check=True)
-
     return output
 
 

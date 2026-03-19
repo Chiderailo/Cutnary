@@ -6,6 +6,7 @@ export type ScannedRoutes = {
   ALL: {
     'process_video.store': { paramsTuple?: []; params?: {} }
     'job.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'job.update_status': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'job.complete': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'clips.index': { paramsTuple: [ParamValue]; params: {'jobId': ParamValue} }
   }
@@ -19,6 +20,7 @@ export type ScannedRoutes = {
   }
   POST: {
     'process_video.store': { paramsTuple?: []; params?: {} }
+    'job.update_status': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'job.complete': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
 }

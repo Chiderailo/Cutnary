@@ -28,10 +28,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Load REDIS_HOST and REDIS_PORT from .env
+# Load config from .env
 load_dotenv(Path(__file__).parent / ".env")
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:3333")
 
 # BullMQ queue name and Redis key for the wait list
 QUEUE_NAME = "video_jobs"
@@ -68,7 +69,7 @@ def process_job(redis_client: redis.Redis, job_id: str) -> None:
         return
 
     logger.info("Processing video: %s", video_url)
-    process_video(video_url)
+    process_video(video_url, job_id=job_id, backend_url=BACKEND_URL)
     logger.info("Completed job: %s", job_id)
 
 

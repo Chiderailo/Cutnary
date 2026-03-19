@@ -35,11 +35,19 @@ import env from '#start/env'
 /** Queue name - must match the Python AI worker's queue name */
 export const VIDEO_JOBS_QUEUE_NAME = 'video_jobs'
 
+/** Processing settings passed to the worker */
+export interface VideoJobSettings {
+  aspect_ratio?: string
+  clip_length?: string
+  caption_style?: string
+}
+
 /** Job payload shape - what the Python worker receives in job.data */
 export interface VideoJobPayload {
   job_id: string
   video_url: string
   status: 'queued'
+  settings?: VideoJobSettings
 }
 
 /** Redis connection options for BullMQ */
@@ -100,11 +108,13 @@ export async function getVideoJobsQueue(): Promise<Queue> {
  *
  * @param jobId - Unique job ID (UUID)
  * @param videoUrl - URL of the video to process (e.g. YouTube link)
+ * @param settings - Optional processing settings (aspect_ratio, clip_length, caption_style)
  * @returns BullMQ job ID
  */
 export async function addVideoProcessingJob(
   jobId: string,
-  videoUrl: string
+  videoUrl: string,
+  settings?: VideoJobSettings
 ): Promise<string> {
   const queue = await getVideoJobsQueue()
 
@@ -112,6 +122,7 @@ export async function addVideoProcessingJob(
     job_id: jobId,
     video_url: videoUrl,
     status: 'queued',
+    ...(settings && Object.keys(settings).length ? { settings } : {}),
   }
 
   const job = await queue.add('process', payload, { jobId })

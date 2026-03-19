@@ -7,6 +7,7 @@ export interface ApiDefinition {
   }
   job: {
     show: typeof routes['job.show']
+    updateStatus: typeof routes['job.update_status']
     complete: typeof routes['job.complete']
   }
   clips: {

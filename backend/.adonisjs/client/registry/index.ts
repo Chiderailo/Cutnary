@@ -18,6 +18,12 @@ const routes = {
     tokens: [{"old":"/api/job/:id","type":0,"val":"api","end":""},{"old":"/api/job/:id","type":0,"val":"job","end":""},{"old":"/api/job/:id","type":1,"val":"id","end":""}],
     types: placeholder as Registry['job.show']['types'],
   },
+  'job.update_status': {
+    methods: ["POST"],
+    pattern: '/api/job/:id/status',
+    tokens: [{"old":"/api/job/:id/status","type":0,"val":"api","end":""},{"old":"/api/job/:id/status","type":0,"val":"job","end":""},{"old":"/api/job/:id/status","type":1,"val":"id","end":""},{"old":"/api/job/:id/status","type":0,"val":"status","end":""}],
+    types: placeholder as Registry['job.update_status']['types'],
+  },
   'job.complete': {
     methods: ["POST"],
     pattern: '/api/job/:id/complete',
