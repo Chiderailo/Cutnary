@@ -1,4 +1,8 @@
+import logging
+import os
 import subprocess
+
+logger = logging.getLogger(__name__)
 
 
 def detect_silence(video_path):
@@ -42,6 +46,10 @@ def detect_silence(video_path):
 
 
 def insert_broll(video_path, broll_video, output):
+
+    if not os.path.exists(broll_video):
+        logger.info("B-roll file not found, skipping broll insertion: %s", broll_video)
+        return video_path
 
     command = [
         "ffmpeg",

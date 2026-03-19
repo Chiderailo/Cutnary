@@ -20,6 +20,28 @@ def portrait_crop_filter(video_path):
     return f"crop=1080:1920:{x}:0"
 
 
+def dynamic_crop_filter(video_path):
+    from speaker_tracking import detect_speaker_positions
+
+    speakers = detect_speaker_positions(video_path)
+
+    if not speakers:
+        return "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"
+
+    avg_center = sum(
+        center
+        for _, centers in speakers
+        for center in centers
+    ) / sum(len(c) for _, c in speakers)
+
+    x = int(avg_center - 540)
+
+    if x < 0:
+        x = 0
+
+    return f"crop=1080:1920:{x}:0"
+
+
 def generate_landscape_clip(video_path, start, end, name, subtitle=None):
 
     os.makedirs(CLIP_DIR, exist_ok=True)
@@ -54,9 +76,9 @@ def generate_portrait_clip(video_path, start, end, name, subtitle=None):
 
     output = f"{CLIP_DIR}/{name}_portrait.mp4"
 
-crop_filter = dynamic_crop_filter(video_path)
-
-    filter_chain = crop_filter
+    # Scale to 1080 width (maintain aspect), then pad to 1080x1920 portrait
+    # Works for any source size (e.g. 640x360 landscape)
+    filter_chain = "scale=1080:-2,pad=1080:1920:(ow-iw)/2:(oh-ih)/2"
 
     if subtitle:
         filter_chain += f",ass={subtitle}"
@@ -111,25 +133,3 @@ def generate_clips(video_path, segments, subtitle_path):
         })
 
     return clips
-
-    def dynamic_crop_filter(video_path):
-
-    from speaker_tracking import detect_speaker_positions
-
-    speakers = detect_speaker_positions(video_path)
-
-    if not speakers:
-        return "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"
-
-    avg_center = sum(
-        center
-        for _, centers in speakers
-        for center in centers
-    ) / sum(len(c) for _, c in speakers)
-
-    x = int(avg_center - 540)
-
-    if x < 0:
-        x = 0
-
-    return f"crop=1080:1920:{x}:0"

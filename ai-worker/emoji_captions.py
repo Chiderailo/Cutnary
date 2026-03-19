@@ -1,6 +1,11 @@
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
 from openai import OpenAI
 
-client = OpenAI(api_key="YOUR_API_KEY")
+load_dotenv(Path(__file__).parent / ".env")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def add_emojis_to_transcript(transcript):
 

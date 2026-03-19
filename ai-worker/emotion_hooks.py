@@ -1,7 +1,12 @@
-from openai import OpenAI
 import json
+import os
+from pathlib import Path
 
-client = OpenAI(api_key="YOUR_API_KEY")
+from dotenv import load_dotenv
+from openai import OpenAI
+
+load_dotenv(Path(__file__).parent / ".env")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
 def detect_emotional_hooks(transcript):
