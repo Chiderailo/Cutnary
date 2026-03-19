@@ -1,0 +1,7 @@
+﻿yt-dlp
+openai
+openai-whisper
+opencv-python
+redis
+python-dotenv
+numpy
