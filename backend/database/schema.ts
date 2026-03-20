@@ -32,6 +32,58 @@ export class AuthAccessTokenSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class ClipSchema extends BaseModel {
+  static $columns = ['createdAt', 'description', 'duration', 'endTime', 'id', 'jobId', 'score', 'startTime', 'updatedAt', 'url', 'viralDescription', 'words'] as const
+  $columns = ClipSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
+  @column()
+  declare description: string | null
+  @column()
+  declare duration: number | null
+  @column()
+  declare endTime: number | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare jobId: string
+  @column()
+  declare score: number | null
+  @column()
+  declare startTime: number | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare url: string
+  @column()
+  declare viralDescription: string | null
+  @column()
+  declare words: any | null
+}
+
+export class JobSchema extends BaseModel {
+  static $columns = ['aspectRatio', 'clipLength', 'createdAt', 'error', 'id', 'status', 'updatedAt', 'userId', 'videoUrl'] as const
+  $columns = JobSchema.$columns
+  @column()
+  declare aspectRatio: string | null
+  @column()
+  declare clipLength: string | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare error: string | null
+  @column({ isPrimary: true })
+  declare id: string | null
+  @column()
+  declare status: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number | null
+  @column()
+  declare videoUrl: string
+}
+
 export class UserSchema extends BaseModel {
   static $columns = ['createdAt', 'email', 'fullName', 'id', 'password', 'updatedAt'] as const
   $columns = UserSchema.$columns

@@ -12,7 +12,7 @@ import vine from '@vinejs/vine'
 
 /**
  * Validator for process-video endpoint
- * Body: { video_url, aspect_ratio?, clip_length?, caption_style? }
+ * Body: { video_url, aspect_ratio?, clip_length?, caption_style?, language? }
  */
 export const processVideoValidator = vine.compile(
   vine.object({
@@ -20,5 +20,6 @@ export const processVideoValidator = vine.compile(
     aspect_ratio: vine.string().optional(),
     clip_length: vine.string().optional(),
     caption_style: vine.string().optional(),
+    language: vine.string().optional(),
   })
 )

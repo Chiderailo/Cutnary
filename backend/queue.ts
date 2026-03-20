@@ -32,14 +32,17 @@ import { Queue } from 'bullmq'
 import type IORedis from 'ioredis'
 import env from '#start/env'
 
-/** Queue name - must match the Python AI worker's queue name */
+/** Queue names - must match the Python AI worker's queue names */
 export const VIDEO_JOBS_QUEUE_NAME = 'video_jobs'
+export const RENDER_JOBS_QUEUE_NAME = 'render_jobs'
+export const TRANSCRIPT_JOBS_QUEUE_NAME = 'transcript_jobs'
 
 /** Processing settings passed to the worker */
 export interface VideoJobSettings {
   aspect_ratio?: string
   clip_length?: string
   caption_style?: string
+  language?: string
 }
 
 /** Job payload shape - what the Python worker receives in job.data */
@@ -47,6 +50,8 @@ export interface VideoJobPayload {
   job_id: string
   video_url: string
   status: 'queued'
+  aspect_ratio?: string
+  clip_length?: string
   settings?: VideoJobSettings
 }
 
@@ -122,9 +127,89 @@ export async function addVideoProcessingJob(
     job_id: jobId,
     video_url: videoUrl,
     status: 'queued',
+    aspect_ratio: settings?.aspect_ratio ?? '9:16',
+    clip_length: settings?.clip_length ?? 'auto',
     ...(settings && Object.keys(settings).length ? { settings } : {}),
   }
 
   const job = await queue.add('process', payload, { jobId })
+  return job.id!
+}
+
+/** Render job payload - what the Python render worker receives */
+export interface RenderJobPayload {
+  job_id: string
+  clip_url: string
+  captions: Array<{
+    start: number
+    end: number
+    text: string
+    words?: Array<{ word: string; start: number; end: number }>
+  }>
+  style: string
+  position: string
+  fontSize: string
+  trimStart: number
+  trimEnd: number
+  textColor: string
+  backgroundColor: string
+  backgroundOpacity: number
+}
+
+let _renderQueue: Queue | undefined
+
+export async function getRenderJobsQueue(): Promise<Queue> {
+  if (!_renderQueue) {
+    const connection = await getConnection()
+    _renderQueue = new Queue(RENDER_JOBS_QUEUE_NAME, {
+      connection,
+      defaultJobOptions: {
+        attempts: 2,
+        backoff: { type: 'fixed', delay: 2000 },
+        removeOnComplete: 50,
+      },
+    })
+  }
+  return _renderQueue
+}
+
+export async function addRenderJob(payload: RenderJobPayload): Promise<string> {
+  const queue = await getRenderJobsQueue()
+  const jobId = payload.job_id
+  const job = await queue.add('render', payload, { jobId })
+  return job.id!
+}
+
+/** Transcript job payload */
+export interface TranscriptJobPayload {
+  video_url: string
+  language: string
+  speaker_separation: boolean
+  video_title?: string
+}
+
+let _transcriptQueue: Queue | undefined
+
+export async function getTranscriptJobsQueue(): Promise<Queue> {
+  if (!_transcriptQueue) {
+    const connection = await getConnection()
+    _transcriptQueue = new Queue(TRANSCRIPT_JOBS_QUEUE_NAME, {
+      connection,
+      defaultJobOptions: {
+        attempts: 2,
+        backoff: { type: 'exponential', delay: 2000 },
+        removeOnComplete: 50,
+      },
+    })
+  }
+  return _transcriptQueue
+}
+
+export async function addTranscriptJob(
+  jobId: string,
+  payload: TranscriptJobPayload
+): Promise<string> {
+  const queue = await getTranscriptJobsQueue()
+  const job = await queue.add('transcript', payload, { jobId })
   return job.id!
 }

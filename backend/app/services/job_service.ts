@@ -3,156 +3,165 @@
 | Job Service
 |--------------------------------------------------------------------------
 |
-| In-memory job store for tracking video processing jobs.
-| The Python AI worker consumes jobs from the Redis queue and updates
-| job status. This service provides:
-| - Unique job ID generation (UUID v4)
-| - In-memory storage for job metadata and status
-| - Clips storage when the AI worker completes processing
-|
-| Note: Jobs are stored in memory only. On server restart, all job
-| data is lost. For production, consider using Redis or a database.
+| Manages video processing jobs in the database.
+| Jobs are tied to users. Worker callbacks (status, complete) update jobs
+| without auth. Protected routes (GET job, GET clips) verify ownership.
 |
 */
 
 import { randomUUID } from 'node:crypto'
+import Job from '#models/job'
+import Clip from '#models/clip'
+import type { JobStatus } from '#models/job'
 
-/**
- * Job status lifecycle - detailed progress for frontend:
- * - queued: Job created, waiting for worker to pick up
- * - downloading: Worker is downloading the video
- * - transcribing: Extracting audio and transcribing with Whisper
- * - detecting_clips: AI detecting viral moments / emotional hooks
- * - generating_clips: Creating video clips from segments
- * - adding_subtitles: Burning subtitles into clips
- * - completed: All clips ready
- * - failed: Error occurred
- */
-export type JobStatus =
-  | 'queued'
-  | 'downloading'
-  | 'transcribing'
-  | 'detecting_clips'
-  | 'generating_clips'
-  | 'adding_subtitles'
-  | 'completed'
-  | 'failed'
+export type { JobStatus }
 
-/** Optional processing settings from the frontend */
 export interface JobSettings {
   aspect_ratio?: string
   clip_length?: string
   caption_style?: string
+  language?: string
 }
 
-/**
- * Represents a video processing job
- */
-export interface Job {
+export interface ClipWord {
+  word: string
+  start: number
+  end: number
+}
+
+export interface ClipData {
+  id: string
+  jobId: string
+  url: string
+  startTime?: number
+  endTime?: number
+  description?: string
+  viralDescription?: string
+  score?: number
+  words?: ClipWord[]
+}
+
+export interface JobData {
   id: string
   videoUrl: string
   status: JobStatus
   createdAt: Date
   updatedAt: Date
-  /** Processing settings (aspect ratio, clip length, caption style) */
+  userId?: number | null
   settings?: JobSettings
-  /** Error message when status is 'failed' */
   error?: string
-  /** Clips produced by the AI worker (when status is 'completed') */
-  clips?: Clip[]
+  clips?: ClipData[]
 }
 
 /**
- * A single clip extracted from the video
- */
-export interface Clip {
-  id: string
-  jobId: string
-  /** URL or path to the clip file */
-  url: string
-  /** Start time in seconds */
-  startTime: number
-  /** End time in seconds */
-  endTime: number
-  /** Optional description from AI */
-  description?: string
-}
-
-/**
- * In-memory store for jobs and clips.
- * Map structure: jobId -> Job
- */
-const jobsStore = new Map<string, Job>()
-
-/**
- * JobService - manages job lifecycle and in-memory storage
+ * JobService - manages job lifecycle in the database
  */
 export class JobService {
-  /**
-   * Generate a unique job ID using UUID v4
-   */
   generateJobId(): string {
     return randomUUID()
   }
 
-  /**
-   * Create a new job and store it in memory
-   */
-  createJob(
+  async createJob(
     videoUrl: string,
-    settings?: JobSettings
-  ): Job {
+    settings?: JobSettings,
+    userId?: number | null
+  ): Promise<JobData> {
     const id = this.generateJobId()
-    const now = new Date()
-
-    const job: Job = {
+    const job = await Job.create({
       id,
+      userId: userId ?? null,
       videoUrl,
       status: 'queued',
-      createdAt: now,
-      updatedAt: now,
-      settings,
-    }
-
-    jobsStore.set(id, job)
-    return job
+      aspectRatio: settings?.aspect_ratio ?? '9:16',
+      clipLength: settings?.clip_length ?? 'auto',
+    })
+    return this.toJobData(job)
   }
 
-  /**
-   * Get a job by ID
-   */
-  getJob(id: string): Job | undefined {
-    return jobsStore.get(id)
+  async getJob(id: string, forUserId?: number): Promise<JobData | null> {
+    const job = await Job.find(id)
+    if (!job) return null
+    if (forUserId != null && job.userId !== forUserId) return null
+    return this.toJobData(job)
   }
 
-  /**
-   * Update job status (called when worker updates progress)
-   */
-  updateJobStatus(
+  async getJobForWorker(id: string): Promise<Job | null> {
+    return Job.find(id)
+  }
+
+  async updateJobStatus(
     id: string,
     status: JobStatus,
-    options?: { error?: string; clips?: Clip[] }
-  ): Job | undefined {
-    const job = jobsStore.get(id)
-    if (!job) return undefined
+    options?: { error?: string; clips?: ClipData[] }
+  ): Promise<JobData | null> {
+    const job = await Job.find(id)
+    if (!job) return null
 
     job.status = status
-    job.updatedAt = new Date()
     if (options?.error) job.error = options.error
-    if (options?.clips) job.clips = options.clips
+    await job.save()
 
-    jobsStore.set(id, job)
-    return job
+    if (options?.clips?.length) {
+      await Clip.query().where('job_id', id).delete()
+      for (const c of options.clips) {
+        await Clip.create({
+          jobId: id,
+          url: c.url,
+          score: c.score ?? null,
+          description: c.description ?? null,
+          duration: c.startTime != null && c.endTime != null ? c.endTime - c.startTime : null,
+          startTime: c.startTime ?? null,
+          endTime: c.endTime ?? null,
+          viralDescription: c.viralDescription ?? null,
+        })
+      }
+    }
+
+    return this.getJob(id)
   }
 
-  /**
-   * Get all clips for a job
-   */
-  getClipsByJobId(jobId: string): Clip[] {
-    const job = jobsStore.get(jobId)
-    return job?.clips ?? []
+  async getClipsByJobId(jobId: string): Promise<ClipData[]> {
+    const clips = await Clip.query().where('job_id', jobId)
+    return clips.map((c) => ({
+      id: String(c.id),
+      jobId: c.jobId,
+      url: c.url,
+      startTime: c.startTime ?? undefined,
+      endTime: c.endTime ?? undefined,
+      description: c.description ?? undefined,
+      viralDescription: c.viralDescription ?? undefined,
+      score: c.score ?? undefined,
+      words: c.words ?? undefined,
+    }))
+  }
+
+  private async toJobData(job: Job): Promise<JobData> {
+    const clips = await job.related('clips').query()
+    return {
+      id: job.id,
+      videoUrl: job.videoUrl,
+      status: job.status,
+      createdAt: job.createdAt.toJSDate(),
+      updatedAt: job.updatedAt?.toJSDate() ?? job.createdAt.toJSDate(),
+      userId: job.userId,
+      settings: {
+        aspect_ratio: job.aspectRatio ?? undefined,
+        clip_length: job.clipLength ?? undefined,
+      },
+      error: job.error ?? undefined,
+      clips: clips.map((c) => ({
+        id: String(c.id),
+        jobId: c.jobId,
+        url: c.url,
+        startTime: c.startTime ?? undefined,
+        endTime: c.endTime ?? undefined,
+        description: c.description ?? undefined,
+        viralDescription: c.viralDescription ?? undefined,
+        score: c.score ?? undefined,
+        words: c.words ?? undefined,
+      })),
+    }
   }
 }
 
-// Singleton instance - export for use in controllers and queue workers
 export const jobService = new JobService()

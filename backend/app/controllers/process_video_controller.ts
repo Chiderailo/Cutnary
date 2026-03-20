@@ -27,20 +27,34 @@ export default class ProcessVideoController {
    * Body: { video_url, aspect_ratio?, clip_length?, caption_style? }
    * Creates a job, pushes to Redis queue (video_jobs), returns job ID and status
    */
-  async store({ request, response }: HttpContext) {
+  async store({ request, response, auth }: HttpContext) {
     const payload = await request.validateUsing(processVideoValidator)
-    const { video_url: videoUrl, aspect_ratio, clip_length, caption_style } = payload
+    const { video_url: videoUrl, aspect_ratio, clip_length, caption_style, language } = payload
 
-    const settings =
-      aspect_ratio || clip_length || caption_style
-        ? { aspect_ratio, clip_length, caption_style }
-        : undefined
+    const user = auth.getUserOrFail()
+    const settings = {
+      aspect_ratio: aspect_ratio ?? '9:16',
+      clip_length: clip_length ?? 'auto',
+      caption_style: caption_style ?? 'simple',
+      language: language ?? 'en',
+    }
+    console.log('Process video: settings=', settings)
 
-    // Generate unique job ID and store job in memory
-    const job = jobService.createJob(videoUrl, settings)
+    const job = await jobService.createJob(videoUrl, settings, user.id)
 
-    // Push to Redis queue (video_jobs) with payload for the Python worker
-    await addVideoProcessingJob(job.id, videoUrl, settings)
+    try {
+      await addVideoProcessingJob(job.id, videoUrl, settings)
+      console.log('Job queued:', job.id, 'settings=', settings)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Queue error'
+      const isRedis = /redis|ECONNREFUSED|connect/i.test(msg)
+      return response.status(isRedis ? 503 : 500).json({
+        success: false,
+        error: isRedis
+          ? 'Queue unavailable. Is Redis running? Start it with: redis-server'
+          : msg,
+      })
+    }
 
     return response.status(202).json({
       success: true,

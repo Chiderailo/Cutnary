@@ -35,4 +35,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   R2_SECRET_KEY: Env.schema.string.optional(),
   R2_BUCKET_NAME: Env.schema.string.optional(),
   R2_PUBLIC_URL: Env.schema.string.optional(),
+
+  // Storage – local path for clips/videos (default: ../storage)
+  STORAGE_PATH: Env.schema.string.optional(),
 })

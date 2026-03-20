@@ -32,11 +32,13 @@ def download_video(url, video_id):
 
     url = _strip_playlist_params(url)
 
+    # Best available quality: prefer mp4 video+m4a audio, fallback to best mp4, then best
     command = [
         "yt-dlp",
-        "-f", "mp4",
+        "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio/best[ext=mp4]/best",
+        "--merge-output-format", "mp4",
         "-o", output_path,
-        url
+        url,
     ]
 
     subprocess.run(command, check=True)

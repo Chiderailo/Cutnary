@@ -10,12 +10,21 @@
 
 import vine from '@vinejs/vine'
 
+const wordSchema = vine.object({
+  word: vine.string(),
+  start: vine.number(),
+  end: vine.number(),
+})
+
 const clipSchema = vine.object({
   id: vine.string().optional(),
   url: vine.string(),
   start_time: vine.number().optional(),
   end_time: vine.number().optional(),
   description: vine.string().optional(),
+  viral_description: vine.string().optional(),
+  score: vine.unionOfTypes([vine.number(), vine.string()]).optional(),
+  words: vine.array(wordSchema).optional(),
 })
 
 export const jobCompleteValidator = vine.compile(

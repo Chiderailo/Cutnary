@@ -39,8 +39,11 @@ def extract_audio(video_path, video_id):
     return audio_path
 
 
-def transcribe_audio(audio_path):
-
+def transcribe_audio(audio_path, language="en"):
+    """
+    Transcribe audio using OpenAI Whisper API.
+    language: ISO 639-1 code (e.g. "en", "es"). Default "en".
+    """
     url = "https://api.openai.com/v1/audio/transcriptions"
 
     headers = {
@@ -50,6 +53,7 @@ def transcribe_audio(audio_path):
     files = {
         "file": open(audio_path, "rb"),
         "model": (None, "whisper-1"),
+        "language": (None, language or "en"),
     }
 
     response = requests.post(url, headers=headers, files=files)
@@ -79,8 +83,11 @@ def transcribe_audio(audio_path):
     )
 
 
-def get_word_timestamps(audio_path):
-
+def get_word_timestamps(audio_path, language="en"):
+    """
+    Get word-level timestamps using OpenAI Whisper API.
+    language: ISO 639-1 code (e.g. "en", "es"). Default "en".
+    """
     url = "https://api.openai.com/v1/audio/transcriptions"
 
     headers = {
@@ -91,7 +98,8 @@ def get_word_timestamps(audio_path):
         "file": open(audio_path, "rb"),
         "model": (None, "whisper-1"),
         "response_format": (None, "verbose_json"),
-        "timestamp_granularities[]": (None, "word")
+        "timestamp_granularities[]": (None, "word"),
+        "language": (None, language or "en"),
     }
 
     response = requests.post(url, headers=headers, files=files)

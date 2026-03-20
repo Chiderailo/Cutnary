@@ -68,8 +68,27 @@ def process_job(redis_client: redis.Redis, job_id: str) -> None:
         logger.error("Job %s has no video_url in payload: %s", job_id, payload)
         return
 
-    logger.info("Processing video: %s", video_url)
-    process_video(video_url, job_id=job_id, backend_url=BACKEND_URL)
+    # Settings from payload (top-level or nested in settings)
+    settings = payload.get("settings") or {}
+    aspect_ratio = payload.get("aspect_ratio") or settings.get("aspect_ratio") or "9:16"
+    clip_length = payload.get("clip_length") or settings.get("clip_length") or "auto"
+    language = settings.get("language") or payload.get("language") or "en"
+    caption_style = settings.get("caption_style") or "simple"
+
+    print(f"[WORKER] aspect_ratio={aspect_ratio}, clip_length={clip_length}")
+    logger.info(
+        "Processing video: %s (language=%s, aspect=%s, clip_length=%s)",
+        video_url, language, aspect_ratio, clip_length
+    )
+    process_video(
+        video_url,
+        job_id=job_id,
+        backend_url=BACKEND_URL,
+        language=language,
+        aspect_ratio=aspect_ratio,
+        clip_length=clip_length,
+        caption_style=caption_style,
+    )
     logger.info("Completed job: %s", job_id)
 
 

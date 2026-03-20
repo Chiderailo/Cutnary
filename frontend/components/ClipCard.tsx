@@ -1,10 +1,10 @@
 /**
  * ClipCard - Displays a single generated clip with video preview and actions
- * Features: video player, duration badge, download, landscape/portrait toggle
+ * Features: video player, duration badge, Edit, Download
  * Uses glass morphism and hover effects for a polished SaaS look
  */
 
-import { useState } from 'react'
+import Link from 'next/link'
 
 export interface ClipData {
   id: string
@@ -12,15 +12,18 @@ export interface ClipData {
   startTime?: number
   endTime?: number
   description?: string
-  /** Alternative URL for portrait/landscape variant if available */
-  landscapeUrl?: string
-  portraitUrl?: string
+  /** Social caption for post (AI-generated, curiosity-driven) */
+  viralDescription?: string
+  /** Virality/engagement score 0-100 (number or JSON string) */
+  score?: number | string
 }
 
 interface ClipCardProps {
   clip: ClipData
-  /** Optional engagement score for sorting/display */
+  /** Optional engagement score for sorting/display (overrides clip.score) */
   score?: number
+  /** Job ID for editor link (enables Edit button) */
+  jobId?: string
 }
 
 function formatDuration(start?: number, end?: number): string {
@@ -31,18 +34,43 @@ function formatDuration(start?: number, end?: number): string {
   return m > 0 ? `${m}:${s.toString().padStart(2, '0')}` : `${s}s`
 }
 
-export default function ClipCard({ clip, score }: ClipCardProps) {
-  const [variant, setVariant] = useState<'landscape' | 'portrait'>('landscape')
-  const videoUrl =
-    variant === 'landscape'
-      ? clip.landscapeUrl ?? clip.url
-      : clip.portraitUrl ?? clip.url
+/** Badge style: green 🔥 >70, yellow ⚡ 40-70, gray 📉 <40 */
+function scoreBadge(score: number): { emoji: string; className: string } {
+  if (score > 70) return { emoji: '🔥', className: 'bg-emerald-500/95 text-white' }
+  if (score >= 40) return { emoji: '⚡', className: 'bg-amber-500/95 text-zinc-900' }
+  return { emoji: '📉', className: 'bg-zinc-600/95 text-zinc-300' }
+}
 
+/** Extract clip filename from URL for editor query */
+function clipFilename(url: string): string {
+  try {
+    const path = new URL(url, 'http://localhost').pathname
+    return path.split('/').pop() || ''
+  } catch {
+    return url.split('/').pop() || ''
+  }
+}
+
+export default function ClipCard({ clip, score: scoreProp, jobId }: ClipCardProps) {
   const duration = formatDuration(clip.startTime, clip.endTime)
+  let scoreValue = 0
+  try {
+    const raw = scoreProp != null ? scoreProp : clip.score
+    if (typeof raw === 'string') {
+      const parsed = JSON.parse(raw)
+      scoreValue = Number(parsed?.score) || 0
+    } else {
+      scoreValue = Number(raw) || 0
+    }
+  } catch {
+    scoreValue = 0
+  }
+  const hasScore = scoreProp != null || clip.score != null
+  const badge = hasScore ? scoreBadge(scoreValue) : null
 
   const handleDownload = () => {
     const a = document.createElement('a')
-    a.href = videoUrl
+    a.href = clip.url
     a.download = `clip-${clip.id}.mp4`
     a.target = '_blank'
     a.rel = 'noopener noreferrer'
@@ -56,9 +84,9 @@ export default function ClipCard({ clip, score }: ClipCardProps) {
                  hover:shadow-lg hover:shadow-violet-500/10"
     >
       {/* Video preview */}
-      <div className="relative aspect-video bg-zinc-900">
+      <div className="relative aspect-video w-full bg-zinc-900">
         <video
-          src={videoUrl}
+          src={clip.url}
           controls
           playsInline
           className="h-full w-full object-contain"
@@ -68,25 +96,46 @@ export default function ClipCard({ clip, score }: ClipCardProps) {
         <div className="absolute left-2 top-2 rounded-md bg-black/70 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm">
           {duration}
         </div>
-        {/* Score badge - top right (optional) */}
-        {score != null && (
-          <div className="absolute right-2 top-2 rounded-md bg-violet-600/80 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm">
-            {score}% viral
-          </div>
-        )}
       </div>
 
       {/* Card content */}
       <div className="p-4">
-        {clip.description && (
-          <p className="mb-3 line-clamp-2 text-sm text-zinc-400">
-            {clip.description}
-          </p>
+        {(clip.viralDescription ?? clip.description) && (
+          <div className="mb-3">
+            <p className="mb-1 text-xs font-medium uppercase tracking-wider text-zinc-500">
+              Social Caption
+            </p>
+            <p className="text-base font-medium leading-snug text-white line-clamp-2">
+              {clip.viralDescription ?? clip.description}
+            </p>
+          </div>
         )}
 
         {/* Action bar */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Download button */}
+          {jobId && (
+            <Link
+              href={`/editor/${jobId}?clip=${encodeURIComponent(clipFilename(clip.url))}`}
+              className="flex items-center gap-2 rounded-lg border border-zinc-600 bg-zinc-800/80 
+                         px-4 py-2 text-sm font-medium text-white transition-all duration-200 
+                         hover:border-violet-500/50 hover:bg-zinc-700"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                />
+              </svg>
+              Edit
+            </Link>
+          )}
           <button
             onClick={handleDownload}
             className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-purple-600 
@@ -109,33 +158,16 @@ export default function ClipCard({ clip, score }: ClipCardProps) {
             </svg>
             Download
           </button>
-
-          {/* Landscape / Portrait toggle - show if both variants exist */}
-          {(clip.landscapeUrl || clip.portraitUrl) && (
-            <div className="flex rounded-lg border border-zinc-600/50 p-0.5">
-              <button
-                onClick={() => setVariant('landscape')}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                  variant === 'landscape'
-                    ? 'bg-violet-600 text-white'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                Landscape
-              </button>
-              <button
-                onClick={() => setVariant('portrait')}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                  variant === 'portrait'
-                    ? 'bg-violet-600 text-white'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                Portrait
-              </button>
-            </div>
-          )}
         </div>
+
+        {/* Virality score – below download button */}
+        {badge && (
+          <p
+            className={`mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${badge.className}`}
+          >
+            {badge.emoji} {scoreValue}/100
+          </p>
+        )}
       </div>
     </div>
   )

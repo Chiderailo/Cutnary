@@ -14,13 +14,11 @@ import { jobService } from '#services/job_service'
 export default class ClipsController {
   /**
    * GET /api/clips/:jobId
-   * Returns array of clips for the given job
+   * Returns array of clips for the given job. Requires auth, owner only.
    */
-  async index({ params, response }: HttpContext) {
-    const clips = jobService.getClipsByJobId(params.jobId)
-
-    // Also check if job exists for better UX
-    const job = jobService.getJob(params.jobId)
+  async index({ params, response, auth }: HttpContext) {
+    const user = auth.getUserOrFail()
+    const job = await jobService.getJob(params.jobId, user.id)
 
     if (!job) {
       return response.status(404).json({
@@ -31,6 +29,7 @@ export default class ClipsController {
       })
     }
 
+    const clips = await jobService.getClipsByJobId(params.jobId)
     return response.json({
       success: true,
       job_id: params.jobId,
