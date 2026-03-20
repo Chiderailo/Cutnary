@@ -7,3 +7,11 @@ build/
 __pycache__/
 *.pyc
 .venv/
+storage/videos/
+storage/audio/
+storage/clips/
+storage/subtitles/
+storage/renders/
+*.mp4
+*.mp3
+*.ass
