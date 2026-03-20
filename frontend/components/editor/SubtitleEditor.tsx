@@ -144,7 +144,7 @@ export default function SubtitleEditor({
           <button
             type="button"
             onClick={handleAdd}
-            className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-500"
+            className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500"
           >
             + Add
           </button>
@@ -157,14 +157,14 @@ export default function SubtitleEditor({
           placeholder="Search subtitles…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-violet-500 focus:outline-none"
+          className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
         />
         {filtered.length > 0 && (
           <div className="mt-2 flex items-center gap-2">
             <button
               type="button"
               onClick={toggleSelectAll}
-              className="text-xs text-violet-400 hover:underline"
+              className="text-xs text-blue-400 hover:underline"
             >
               {selectedIds.size === filtered.length ? 'Deselect all' : 'Select all'}
             </button>
@@ -189,7 +189,7 @@ export default function SubtitleEditor({
             <button
               type="button"
               onClick={handleAdd}
-              className="mt-2 text-violet-400 hover:underline"
+              className="mt-2 text-blue-400 hover:underline"
             >
               Add your first subtitle
             </button>
@@ -210,7 +210,7 @@ export default function SubtitleEditor({
                 onDrop={() => handleDrop(s.id)}
                 className={`group rounded-lg border px-3 py-2 transition-colors ${
                   currentSubtitleId === s.id
-                    ? 'border-violet-500/50 bg-violet-500/10'
+                    ? 'border-blue-500/50 bg-blue-500/10'
                     : 'border-transparent hover:bg-zinc-800/60'
                 } ${draggedId === s.id ? 'opacity-50' : ''}`}
               >
@@ -233,7 +233,7 @@ export default function SubtitleEditor({
                       onSelectSubtitle(s)
                       onSeekTo?.(s.start)
                     }}
-                    className="shrink-0 font-mono text-xs text-zinc-500 hover:text-violet-400"
+                    className="shrink-0 font-mono text-xs text-zinc-500 hover:text-blue-400"
                     title="Seek to subtitle"
                   >
                     {formatTimestamp(s.start)}
@@ -252,7 +252,7 @@ export default function SubtitleEditor({
                             setEditText('')
                           }
                         }}
-                        className="w-full rounded border border-zinc-600 bg-zinc-800 px-2 py-1 text-sm text-white focus:border-violet-500 focus:outline-none"
+                        className="w-full rounded border border-zinc-600 bg-zinc-800 px-2 py-1 text-sm text-white focus:border-blue-500 focus:outline-none"
                         autoFocus
                       />
                     ) : (

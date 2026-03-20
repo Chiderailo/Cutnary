@@ -3,7 +3,7 @@
  *
  * Renders the video and displays subtitles as absolutely positioned divs
  * (not burned in). Uses requestAnimationFrame for smooth 60fps sync with
- * video.currentTime. Karaoke highlights each word in violet as spoken.
+ * video.currentTime. Karaoke highlights each word in blue as spoken.
  */
 
 import { useRef, useEffect, useCallback, useState } from 'react'
@@ -242,7 +242,7 @@ export default function VideoPlayer({
           {!isPlaying && (
             <div className="rounded-full bg-white/90 p-4 shadow-lg">
               <svg
-                className="h-12 w-12 text-violet-600"
+                className="h-12 w-12 text-blue-600"
                 fill="currentColor"
                 viewBox="0 0 24 24"
               >
@@ -290,7 +290,7 @@ export default function VideoPlayer({
           aria-valuemax={clipDuration}
         >
           <div
-            className="h-1 rounded-full bg-violet-600 transition-all"
+            className="h-1 rounded-full bg-blue-600 transition-all"
             style={{
               width: `${clipDuration > 0 ? (displayTime / clipDuration) * 100 : 0}%`,
             }}
@@ -346,7 +346,7 @@ function SubtitleOverlay({
     return (
       <div
         className={`${baseClass} ${styleClasses.karaoke} pointer-events-auto cursor-pointer rounded px-2 py-1 ${
-          isActive ? 'ring-2 ring-violet-500' : ''
+          isActive ? 'ring-2 ring-blue-500' : ''
         }`}
         style={{ color: textColor, ...bgStyle }}
         onClick={onClick}
@@ -358,7 +358,7 @@ function SubtitleOverlay({
               key={i}
               className={
                 isHighlighted
-                  ? 'rounded bg-violet-500/80 px-0.5 text-white'
+                  ? 'rounded bg-blue-500/80 px-0.5 text-white'
                   : 'text-white/90'
               }
             >
@@ -373,10 +373,10 @@ function SubtitleOverlay({
   if (style === 'glitch') {
     return (
       <div
-        className={`${baseClass} ${styleClasses.glitch} pointer-events-auto cursor-pointer ${isActive ? 'ring-2 ring-violet-500' : ''}`}
+        className={`${baseClass} ${styleClasses.glitch} pointer-events-auto cursor-pointer ${isActive ? 'ring-2 ring-blue-500' : ''}`}
         style={{
           color: textColor,
-          textShadow: `2px 0 #ff00de, -2px 0 #00fff2, 0 0 8px ${textColor}`,
+          textShadow: `2px 0 #3b82f6, -2px 0 #38bdf8, 0 0 8px ${textColor}`,
         }}
         onClick={onClick}
       >
@@ -387,7 +387,7 @@ function SubtitleOverlay({
 
   return (
     <div
-      className={`${baseClass} ${styleClasses[style]} pointer-events-auto cursor-pointer ${isActive ? 'ring-2 ring-violet-500' : ''}`}
+      className={`${baseClass} ${styleClasses[style]} pointer-events-auto cursor-pointer ${isActive ? 'ring-2 ring-blue-500' : ''}`}
       style={{
         color: textColor,
         ...bgStyle,

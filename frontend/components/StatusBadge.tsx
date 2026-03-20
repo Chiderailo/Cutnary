@@ -23,15 +23,15 @@ const statusConfig: Record<
     icon: '○',
   },
   processing: {
-    bg: 'bg-violet-500/20',
-    text: 'text-violet-300',
-    border: 'border-violet-500/50',
+    bg: 'bg-blue-500/20',
+    text: 'text-blue-300',
+    border: 'border-blue-500/50',
     icon: '◐',
   },
   completed: {
-    bg: 'bg-emerald-500/20',
-    text: 'text-emerald-400',
-    border: 'border-emerald-500/50',
+    bg: 'bg-blue-500/20',
+    text: 'text-blue-400',
+    border: 'border-blue-500/50',
     icon: '✓',
   },
   failed: {

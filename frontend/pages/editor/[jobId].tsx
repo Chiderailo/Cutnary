@@ -381,8 +381,8 @@ export default function EditorPage() {
 
       <div className="flex min-h-screen flex-col bg-[#0a0a0b]">
         <div className="pointer-events-none fixed inset-0">
-          <div className="absolute -left-40 -top-40 h-80 w-80 rounded-full bg-violet-600/10 blur-[120px]" />
-          <div className="absolute -right-40 top-1/3 h-96 w-96 rounded-full bg-purple-600/10 blur-[140px]" />
+          <div className="absolute -left-40 -top-40 h-80 w-80 rounded-full bg-blue-600/10 blur-[120px]" />
+          <div className="absolute -right-40 top-1/3 h-96 w-96 rounded-full bg-blue-500/10 blur-[140px]" />
         </div>
 
         <header className="relative z-10 flex h-14 items-center justify-between gap-2 border-b border-zinc-800/50 bg-[#0a0a0b]/95 px-4 backdrop-blur-xl">
@@ -390,7 +390,7 @@ export default function EditorPage() {
             {showBackConfirm ? (
               <div className="flex items-center gap-2 rounded-lg bg-zinc-800/90 px-3 py-2 text-sm">
                 <span className="text-zinc-300">Your edits are saved. Come back anytime.</span>
-                <Link href="/" className="text-violet-400 hover:underline">Go</Link>
+                <Link href="/" className="text-blue-400 hover:underline">Go</Link>
                 <button type="button" onClick={() => setShowBackConfirm(false)} className="text-zinc-500 hover:text-white">Cancel</button>
               </div>
             ) : (
@@ -414,7 +414,7 @@ export default function EditorPage() {
                   <h1 className="truncate text-sm font-semibold text-white">{clipName}</h1>
                   <p className="text-xs text-zinc-500">{formatDuration(clipDurationSec)}</p>
                 </div>
-                {hasUnsavedChanges && <span className="ml-1 h-2 w-2 shrink-0 rounded-full bg-amber-500" title="Unsaved" />}
+                {hasUnsavedChanges && <span className="ml-1 h-2 w-2 shrink-0 rounded-full bg-blue-500" title="Unsaved" />}
               </div>
             )}
           </div>
@@ -429,7 +429,7 @@ export default function EditorPage() {
             <button
               onClick={handleExport}
               disabled={exporting || !selectedClip}
-              className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-purple-600 px-4 py-2 text-sm font-medium text-white shadow-lg transition-all hover:from-violet-500 hover:to-purple-500 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-lg transition-all hover:bg-blue-500 disabled:opacity-50"
             >
               {exporting && renderStatus === 'rendering' ? (
                 <>
@@ -562,7 +562,7 @@ export default function EditorPage() {
             <button
               type="button"
               onClick={handleCopyCaption}
-              className="rounded-lg border border-zinc-600 px-3 py-1.5 text-xs text-zinc-400 hover:border-violet-500 hover:text-violet-400"
+              className="rounded-lg border border-zinc-600 px-3 py-1.5 text-xs text-zinc-400 hover:border-blue-500 hover:text-blue-400"
             >
               Copy to clipboard
             </button>
@@ -572,11 +572,11 @@ export default function EditorPage() {
             onChange={(e) => setSocialCaption(e.target.value)}
             placeholder="Write your post caption..."
             maxLength={charLimit + 100}
-            className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:border-violet-500 focus:outline-none"
+            className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
             rows={3}
           />
           {socialCaption.length > charLimit && (
-            <p className="mt-1 text-xs text-amber-500">Will be truncated to {charLimit} chars for {platform}</p>
+            <p className="mt-1 text-xs text-blue-400">Will be truncated to {charLimit} chars for {platform}</p>
           )}
         </div>
 
@@ -585,7 +585,7 @@ export default function EditorPage() {
           <button
             onClick={handleExport}
             disabled={exporting || !selectedClip}
-            className="w-full max-w-sm rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 py-3 font-medium text-white disabled:opacity-50"
+            className="w-full max-w-sm rounded-xl bg-blue-600 py-3 font-medium text-white disabled:opacity-50"
           >
             {exporting ? 'Rendering…' : 'Export'}
           </button>

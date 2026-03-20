@@ -1,6 +1,6 @@
 /**
  * Library Page - My videos and clips (WayinVideo/Opus Clip style)
- * Dark theme, violet accents, grid of video cards
+ * Dark theme, black/white + blue accents, grid of video cards
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -105,8 +105,8 @@ export default function LibraryPage() {
 
       <div className="min-h-screen bg-[#0a0a0b]">
         <div className="pointer-events-none fixed inset-0">
-          <div className="absolute -left-40 -top-40 h-80 w-80 rounded-full bg-violet-600/10 blur-[120px]" />
-          <div className="absolute -right-40 top-1/3 h-96 w-96 rounded-full bg-purple-600/10 blur-[140px]" />
+          <div className="absolute -left-40 -top-40 h-80 w-80 rounded-full bg-blue-600/10 blur-[120px]" />
+          <div className="absolute -right-40 top-1/3 h-96 w-96 rounded-full bg-blue-500/10 blur-[140px]" />
         </div>
 
         <Header />
@@ -120,7 +120,7 @@ export default function LibraryPage() {
                 placeholder="Search by title or date…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-white placeholder-zinc-500 focus:border-violet-500 focus:outline-none sm:w-64"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none sm:w-64"
               />
               <select
                 value={sort}
@@ -135,7 +135,7 @@ export default function LibraryPage() {
                 <button
                   type="button"
                   onClick={() => setViewMode('grid')}
-                  className={`rounded px-3 py-1.5 text-sm ${viewMode === 'grid' ? 'bg-violet-600 text-white' : 'text-zinc-400'}`}
+                  className={`rounded px-3 py-1.5 text-sm ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'text-zinc-400'}`}
                   aria-label="Grid view"
                 >
                   ⊞
@@ -143,7 +143,7 @@ export default function LibraryPage() {
                 <button
                   type="button"
                   onClick={() => setViewMode('list')}
-                  className={`rounded px-3 py-1.5 text-sm ${viewMode === 'list' ? 'bg-violet-600 text-white' : 'text-zinc-400'}`}
+                  className={`rounded px-3 py-1.5 text-sm ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'text-zinc-400'}`}
                   aria-label="List view"
                 >
                   ☰
@@ -163,7 +163,7 @@ export default function LibraryPage() {
               <p className="mb-6 text-zinc-500">Start by pasting a YouTube link!</p>
               <Link
                 href="/"
-                className="rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 px-6 py-3 font-medium text-white hover:from-violet-500 hover:to-purple-500"
+                className="rounded-xl bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-500"
               >
                 Create your first clip
               </Link>
@@ -233,8 +233,8 @@ function LibraryCard({
   const [menuOpen, setMenuOpen] = useState(false)
 
   const statusConfig = {
-    completed: { dot: 'bg-emerald-500', label: 'Completed', spin: false },
-    processing: { dot: 'bg-amber-500', label: 'Processing', spin: true },
+    completed: { dot: 'bg-blue-500', label: 'Completed', spin: false },
+    processing: { dot: 'bg-blue-400', label: 'Processing', spin: true },
     failed: { dot: 'bg-red-500', label: 'Failed', spin: false },
   }
   const sc = statusConfig[entry.status] ?? statusConfig.completed
@@ -244,7 +244,7 @@ function LibraryCard({
 
   return (
     <div
-      className="group animate-[fadeIn_0.4s_ease-out_forwards] rounded-xl border border-zinc-800 bg-zinc-900 transition-all duration-300 hover:scale-[1.02] hover:border-violet-500/30 hover:shadow-lg hover:shadow-violet-500/10"
+      className="group animate-[fadeIn_0.4s_ease-out_forwards] rounded-xl border border-zinc-800 bg-zinc-900 transition-all duration-300 hover:scale-[1.02] hover:border-blue-500/30 hover:shadow-lg hover:shadow-blue-500/10"
       style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'forwards', opacity: 0 }}
     >
       <div className={`flex overflow-hidden rounded-xl ${viewMode === 'list' ? 'flex-row' : 'flex-col'}`}>
@@ -262,10 +262,10 @@ function LibraryCard({
               </svg>
             </div>
           )}
-          <div className="absolute left-2 top-2 rounded bg-violet-600/90 px-2 py-0.5 text-xs font-medium text-white">
+          <div className="absolute left-2 top-2 rounded bg-blue-600/90 px-2 py-0.5 text-xs font-medium text-white">
             {clipCount} clips
           </div>
-          <div className={`absolute right-2 top-2 flex items-center gap-1.5 rounded px-2 py-0.5 text-xs ${sc.dot === 'bg-emerald-500' ? 'bg-emerald-500/90' : sc.dot === 'bg-red-500' ? 'bg-red-500/90' : 'bg-amber-500/90'} text-white`}>
+          <div className={`absolute right-2 top-2 flex items-center gap-1.5 rounded px-2 py-0.5 text-xs ${sc.dot === 'bg-blue-500' ? 'bg-blue-500/90' : sc.dot === 'bg-red-500' ? 'bg-red-500/90' : 'bg-blue-400/90'} text-white`}>
             {sc.spin && <span className="inline-block h-2 w-2 animate-spin rounded-full border-2 border-white border-t-transparent" />}
             {!sc.spin && <span className="h-2 w-2 rounded-full bg-white" />}
             {sc.label}
@@ -293,20 +293,20 @@ function LibraryCard({
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <Link
               href={viewClipsHref}
-              className="rounded-lg bg-gradient-to-r from-violet-600 to-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:from-violet-500 hover:to-purple-500"
+              className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
             >
               View Clips
             </Link>
             <Link
               href={editHref}
-              className="rounded-lg border border-zinc-600 px-3 py-1.5 text-sm text-zinc-300 hover:border-violet-500 hover:text-white"
+              className="rounded-lg border border-zinc-600 px-3 py-1.5 text-sm text-zinc-300 hover:border-blue-500 hover:text-white"
             >
               Edit
             </Link>
             <button
               type="button"
               onClick={onDownloadAll}
-              className="rounded-lg border border-zinc-600 px-3 py-1.5 text-sm text-zinc-300 hover:border-violet-500 hover:text-white"
+              className="rounded-lg border border-zinc-600 px-3 py-1.5 text-sm text-zinc-300 hover:border-blue-500 hover:text-white"
             >
               Download All
             </button>
@@ -373,7 +373,7 @@ function RenameModal({
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-violet-500 focus:outline-none"
+          className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
         />
         <div className="mt-6 flex justify-end gap-2">
           <button
@@ -386,7 +386,7 @@ function RenameModal({
           <button
             type="button"
             onClick={() => onSave(title.trim() || entry.videoTitle)}
-            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
           >
             Save
           </button>

@@ -28,7 +28,7 @@ export default function SettingsPage() {
       <div className="mx-auto max-w-2xl px-4 py-12">
         <h1 className="text-2xl font-bold text-white">Settings</h1>
         <p className="mt-2 text-zinc-400">Settings coming soon.</p>
-        <Link href="/" className="mt-4 inline-block text-violet-400 hover:text-violet-300">
+        <Link href="/" className="mt-4 inline-block text-blue-400 hover:text-blue-300">
           ← Back to home
         </Link>
       </div>

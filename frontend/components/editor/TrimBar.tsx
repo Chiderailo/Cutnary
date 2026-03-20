@@ -115,7 +115,7 @@ export default function TrimBar({
 
         {/* Start handle */}
         <div
-          className="absolute top-0 bottom-0 w-2 cursor-ew-resize rounded-l bg-violet-500 hover:bg-violet-400"
+          className="absolute top-0 bottom-0 w-2 cursor-ew-resize rounded-l bg-blue-500 hover:bg-blue-400"
           style={{ left: `${toPct(trimStart)}%` }}
           onMouseDown={handleMouseDown('start')}
           role="slider"
@@ -126,7 +126,7 @@ export default function TrimBar({
 
         {/* End handle */}
         <div
-          className="absolute top-0 bottom-0 w-2 cursor-ew-resize rounded-r bg-violet-500 hover:bg-violet-400"
+          className="absolute top-0 bottom-0 w-2 cursor-ew-resize rounded-r bg-blue-500 hover:bg-blue-400"
           style={{ left: `calc(${toPct(trimEnd)}% - 8px)` }}
           onMouseDown={handleMouseDown('end')}
           role="slider"

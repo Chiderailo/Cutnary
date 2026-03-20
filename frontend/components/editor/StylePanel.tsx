@@ -76,7 +76,7 @@ export default function StylePanel({
               onClick={() => onStyleChange(s.value)}
               className={`flex flex-col items-center gap-1.5 rounded-lg border p-2 text-left transition-all ${
                 style === s.value
-                  ? 'border-violet-500 bg-violet-500/10'
+                  ? 'border-blue-500 bg-blue-500/10'
                   : 'border-zinc-700 hover:border-zinc-600'
               }`}
             >
@@ -100,7 +100,7 @@ export default function StylePanel({
               onClick={() => onPositionChange(p.value)}
               className={`flex-1 rounded-lg border py-2 text-xs font-medium transition-colors ${
                 position === p.value
-                  ? 'border-violet-500 bg-violet-500/20 text-violet-300'
+                  ? 'border-blue-500 bg-blue-500/20 text-blue-300'
                   : 'border-zinc-700 text-zinc-400 hover:border-zinc-600'
               }`}
             >
@@ -121,7 +121,7 @@ export default function StylePanel({
               onClick={() => onFontSizeChange(f.value)}
               className={`flex-1 rounded-lg border py-2 text-xs font-medium transition-colors ${
                 fontSize === f.value
-                  ? 'border-violet-500 bg-violet-500/20 text-violet-300'
+                  ? 'border-blue-500 bg-blue-500/20 text-blue-300'
                   : 'border-zinc-700 text-zinc-400 hover:border-zinc-600'
               }`}
             >
@@ -169,7 +169,7 @@ export default function StylePanel({
           step={0.05}
           value={backgroundOpacity}
           onChange={(e) => onBackgroundOpacityChange(parseFloat(e.target.value))}
-          className="w-full accent-violet-600"
+          className="w-full accent-blue-600"
         />
       </div>
 
@@ -188,22 +188,22 @@ function StylePreview({ style, sample }: { style: CaptionStyle; sample: string }
     case 'karaoke':
       return (
         <span className="text-xs font-bold text-white">
-          <span className="rounded bg-violet-500/60 px-0.5">{words[0]}</span>{' '}
+          <span className="rounded bg-blue-500/60 px-0.5">{words[0]}</span>{' '}
           {words.slice(1).join(' ')}
         </span>
       )
     case 'glitch':
       return (
         <span
-          className="text-xs font-bold text-cyan-400"
-          style={{ textShadow: '1px 0 #ff00de, -1px 0 #00fff2' }}
+          className="text-xs font-bold text-blue-400"
+          style={{ textShadow: '1px 0 #3b82f6, -1px 0 #38bdf8' }}
         >
           {sample}
         </span>
       )
     case 'highlighter':
       return (
-        <span className="rounded bg-amber-400/80 px-1 py-0.5 text-xs font-medium text-zinc-900">
+        <span className="rounded bg-blue-400/80 px-1 py-0.5 text-xs font-medium text-white">
           {sample}
         </span>
       )

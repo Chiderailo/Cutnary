@@ -36,8 +36,8 @@ function formatDuration(start?: number, end?: number): string {
 
 /** Badge style: green 🔥 >70, yellow ⚡ 40-70, gray 📉 <40 */
 function scoreBadge(score: number): { emoji: string; className: string } {
-  if (score > 70) return { emoji: '🔥', className: 'bg-emerald-500/95 text-white' }
-  if (score >= 40) return { emoji: '⚡', className: 'bg-amber-500/95 text-zinc-900' }
+  if (score > 70) return { emoji: '🔥', className: 'bg-blue-500/95 text-white' }
+  if (score >= 40) return { emoji: '⚡', className: 'bg-blue-400/90 text-white' }
   return { emoji: '📉', className: 'bg-zinc-600/95 text-zinc-300' }
 }
 
@@ -80,8 +80,8 @@ export default function ClipCard({ clip, score: scoreProp, jobId }: ClipCardProp
   return (
     <div
       className="group relative overflow-hidden rounded-xl border border-zinc-700/50 bg-zinc-900/60 
-                 backdrop-blur-sm transition-all duration-300 hover:border-violet-500/30 
-                 hover:shadow-lg hover:shadow-violet-500/10"
+                 backdrop-blur-sm transition-all duration-300 hover:border-blue-500/30
+                 hover:shadow-lg hover:shadow-blue-500/10"
     >
       {/* Video preview */}
       <div className="relative aspect-video w-full bg-zinc-900">
@@ -118,7 +118,7 @@ export default function ClipCard({ clip, score: scoreProp, jobId }: ClipCardProp
               href={`/editor/${jobId}?clip=${encodeURIComponent(clipFilename(clip.url))}`}
               className="flex items-center gap-2 rounded-lg border border-zinc-600 bg-zinc-800/80 
                          px-4 py-2 text-sm font-medium text-white transition-all duration-200 
-                         hover:border-violet-500/50 hover:bg-zinc-700"
+                         hover:border-blue-500/50 hover:bg-zinc-700"
             >
               <svg
                 className="h-4 w-4"
@@ -138,9 +138,9 @@ export default function ClipCard({ clip, score: scoreProp, jobId }: ClipCardProp
           )}
           <button
             onClick={handleDownload}
-            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-purple-600 
+            className="flex items-center gap-2 rounded-lg bg-blue-600 
                        px-4 py-2 text-sm font-medium text-white shadow-lg transition-all duration-200 
-                       hover:from-violet-500 hover:to-purple-500 hover:shadow-violet-500/25 
+                       hover:bg-blue-500 hover:shadow-blue-500/25 
                        active:scale-[0.98]"
           >
             <svg

@@ -15,10 +15,10 @@ import Header from '@/components/Header'
 import { YouTubePlayer, type YouTubePlayerRef } from '@/components/YouTubePlayer'
 
 const SPEAKER_COLORS: Record<string, string> = {
-  'Speaker 1': 'text-violet-400 border-violet-500/50',
-  'Speaker 2': 'text-emerald-400 border-emerald-500/50',
-  'Speaker 3': 'text-amber-400 border-amber-500/50',
-  'Speaker 4': 'text-rose-400 border-rose-500/50',
+  'Speaker 1': 'text-blue-400 border-blue-500/50',
+  'Speaker 2': 'text-sky-400 border-sky-500/50',
+  'Speaker 3': 'text-blue-300 border-blue-400/50',
+  'Speaker 4': 'text-indigo-400 border-indigo-500/50',
 }
 
 function getSpeakerColor(speaker: string): string {
@@ -179,7 +179,7 @@ export default function TranscriptPage() {
         <Header />
         <div className="flex min-h-[60vh] items-center justify-center">
           <div className="text-center">
-            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
+            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
             <p className="mt-4 text-zinc-500">{status}...</p>
           </div>
         </div>
@@ -195,7 +195,7 @@ export default function TranscriptPage() {
         <div className="flex min-h-[60vh] items-center justify-center">
           <div className="text-center">
             <p className="text-red-400">Transcript failed to load.</p>
-            <Link href="/" className="mt-4 inline-block text-violet-400 hover:text-violet-300">← Back to home</Link>
+            <Link href="/" className="mt-4 inline-block text-blue-400 hover:text-blue-300">← Back to home</Link>
           </div>
         </div>
       </>
@@ -243,7 +243,7 @@ export default function TranscriptPage() {
                 placeholder="Search transcript..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="rounded-lg border border-zinc-700 bg-zinc-800/50 px-4 py-2 text-white placeholder-zinc-500 focus:border-violet-500 focus:outline-none"
+                className="rounded-lg border border-zinc-700 bg-zinc-800/50 px-4 py-2 text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
               />
               <button
                 type="button"
@@ -283,8 +283,8 @@ export default function TranscriptPage() {
                       key={i}
                       ref={isActiveSeg ? activeSegRef : undefined}
                       onClick={() => handleSegmentClick(seg)}
-                      className={`cursor-pointer rounded-lg border p-4 transition-colors hover:border-violet-500/30 hover:bg-zinc-900/80 ${
-                        isActiveSeg ? 'border-violet-500/50 bg-zinc-900/80' : 'border-zinc-800 bg-zinc-900/60'
+                      className={`cursor-pointer rounded-lg border p-4 transition-colors hover:border-blue-500/30 hover:bg-zinc-900/80 ${
+                        isActiveSeg ? 'border-blue-500/50 bg-zinc-900/80' : 'border-zinc-800 bg-zinc-900/60'
                       }`}
                     >
                       <div className="flex items-center gap-2">
@@ -337,7 +337,7 @@ export default function TranscriptPage() {
                             return (
                               <span
                                 key={wi}
-                                className={isHighlight ? 'bg-violet-500/40 text-white' : ''}
+                                className={isHighlight ? 'bg-blue-500/40 text-white' : ''}
                               >
                                 {w.word}{' '}
                               </span>
