@@ -39,8 +39,10 @@ export default class TranscriptController {
 
     const jobId = randomUUID()
     const language = body.language ?? 'en'
-    const speakerSeparation = body.speaker_separation ?? true
+    const speakerSeparation = body.speaker_separation !== false && body.speaker_separation !== 'false'
     const videoTitle = body.video_title ?? 'Untitled'
+
+    console.log('speaker_separation:', speakerSeparation, '(from body:', body.speaker_separation, ')')
 
     try {
       await addTranscriptJob(jobId, {
@@ -89,6 +91,7 @@ export default class TranscriptController {
       video_url: state.videoUrl,
       video_title: state.videoTitle,
       speaker_separation: state.speakerSeparation,
+      note: state.note,
       error: state.error,
     })
   }
@@ -120,6 +123,7 @@ export default class TranscriptController {
       video_url?: string
       video_title?: string
       speaker_separation?: boolean
+      note?: string
     }
 
     if (body.status === 'failed' || body.error) {
@@ -130,7 +134,8 @@ export default class TranscriptController {
         body.segments,
         body.video_url ?? '',
         body.video_title ?? 'Untitled',
-        body.speaker_separation
+        body.speaker_separation,
+        body.note
       )
     }
 

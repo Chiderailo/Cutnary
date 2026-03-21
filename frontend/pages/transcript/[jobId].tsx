@@ -15,7 +15,7 @@ import Header from '@/components/Header'
 import { YouTubePlayer, type YouTubePlayerRef } from '@/components/YouTubePlayer'
 
 const SPEAKER_COLORS: Record<string, string> = {
-  'Speaker 1': 'text-blue-400 border-blue-500/50',
+  'Speaker 1': 'text-violet-400 border-violet-500/50',
   'Speaker 2': 'text-sky-400 border-sky-500/50',
   'Speaker 3': 'text-blue-300 border-blue-400/50',
   'Speaker 4': 'text-indigo-400 border-indigo-500/50',
@@ -56,12 +56,14 @@ interface TranscriptSegment {
 
 export default function TranscriptPage() {
   const router = useRouter()
-  const { jobId } = router.query
+  const { jobId: jobIdRaw } = router.query
+  const jobId = Array.isArray(jobIdRaw) ? jobIdRaw[0] : jobIdRaw || ''
   const { isAuthenticated, isLoading } = useAuth()
   const [segments, setSegments] = useState<TranscriptSegment[]>([])
   const [videoUrl, setVideoUrl] = useState('')
   const [videoTitle, setVideoTitle] = useState('')
   const [speakerSeparation, setSpeakerSeparation] = useState(true)
+  const [note, setNote] = useState<string | null>(null)
   const [currentTime, setCurrentTime] = useState(0)
   const [status, setStatus] = useState<string>('loading')
   const playerRef = useRef<YouTubePlayerRef>(null)
@@ -76,7 +78,8 @@ export default function TranscriptPage() {
   }, [isLoading, isAuthenticated, router])
 
   useEffect(() => {
-    if (!jobId || typeof jobId !== 'string') return
+    if (!jobId) return
+    const jobIdStr = String(jobId)
     apiJson<{
       success: boolean
       status: string
@@ -84,13 +87,17 @@ export default function TranscriptPage() {
       video_url?: string
       video_title?: string
       speaker_separation?: boolean
-    }>(`/api/transcript/${jobId}`)
+      note?: string
+    }>(`/api/transcript/${jobIdStr}`, { cache: 'no-store' })
       .then((data) => {
+        console.log('Transcript data:', data)
+        console.log('First segment text:', data.segments?.[0]?.text)
         setStatus(data.status)
         if (data.segments) setSegments(data.segments)
         if (data.video_url) setVideoUrl(data.video_url)
         if (data.video_title) setVideoTitle(data.video_title)
         if (typeof data.speaker_separation === 'boolean') setSpeakerSeparation(data.speaker_separation)
+        if (data.note) setNote(data.note)
       })
       .catch(() => setStatus('failed'))
   }, [jobId])
@@ -140,7 +147,7 @@ export default function TranscriptPage() {
     const blob = new Blob([fullTranscript], { type: 'text/plain' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `transcript-${jobId}.txt`
+    a.download = `transcript-${String(jobId)}.txt`
     a.click()
     URL.revokeObjectURL(a.href)
   }
@@ -158,7 +165,7 @@ export default function TranscriptPage() {
     const blob = new Blob([srt], { type: 'text/plain' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `transcript-${jobId}.srt`
+    a.download = `transcript-${String(jobId)}.srt`
     a.click()
     URL.revokeObjectURL(a.href)
   }
@@ -215,6 +222,13 @@ export default function TranscriptPage() {
           <h1 className="truncate text-xl font-semibold text-white">{videoTitle || 'Transcript'}</h1>
           <div className="w-20" />
         </div>
+
+        {note && (
+          <div className="mb-6 flex items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-amber-200">
+            <span className="text-xl" aria-hidden>ℹ️</span>
+            <p className="text-sm">{note}</p>
+          </div>
+        )}
 
         <div className="flex flex-col gap-6 lg:flex-row">
           {/* Video – 30% on desktop */}
@@ -329,24 +343,15 @@ export default function TranscriptPage() {
                           {formatTime(seg.start)} – {formatTime(seg.end)}
                         </span>
                       </div>
-                      <p className="mt-2 text-zinc-300">
-                        {segWords.length > 0 ? (
-                          segWords.map((w, wi) => {
-                            const globalIdx = wordIdxOffset + wi
-                            const isHighlight = activeWord === globalIdx
-                            return (
-                              <span
-                                key={wi}
-                                className={isHighlight ? 'bg-blue-500/40 text-white' : ''}
-                              >
-                                {w.word}{' '}
-                              </span>
-                            )
-                          })
-                        ) : (
-                          seg.text
-                        )}
-                      </p>
+                      <div className="mt-2 text-zinc-300">
+                        {(seg.text || '')
+                          .split('\n')
+                          .map((line, i) => (
+                            <p key={i} className={i > 0 ? 'mt-1' : ''}>
+                              {line}
+                            </p>
+                          ))}
+                      </div>
                     </div>
                   )
                 })

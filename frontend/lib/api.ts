@@ -39,20 +39,33 @@ export async function apiFetch(path: string, options: ApiOptions = {}): Promise<
   return res
 }
 
-export async function apiJson<T>(path: string, options: ApiOptions = {}): Promise<T> {
-  const res = await apiFetch(path, options)
+/**
+ * Safely parse response text as JSON. Logs for debugging.
+ */
+export async function parseResponseJson<T>(res: Response): Promise<T> {
   const text = await res.text()
+  console.log('API response:', text)
   if (!text.trim()) {
     throw new Error(res.ok ? 'Empty response' : `Server error (${res.status})`)
   }
+  let data: T
   try {
-    const data = JSON.parse(text) as T
-    if (!res.ok) {
-      throw new Error((data as { error?: string }).error ?? `Request failed (${res.status})`)
-    }
-    return data
+    data = JSON.parse(text) as T
   } catch (e) {
-    if (e instanceof Error && e.message.startsWith('Request failed')) throw e
-    throw new Error(res.ok ? `Invalid response` : `Server error (${res.status}): ${text.slice(0, 80)}`)
+    console.error('API response was not JSON:', text)
+    throw new Error(`Server error: ${text.slice(0, 200)}`)
   }
+  if (!res.ok) {
+    throw new Error(
+      (data as { error?: string })?.error ??
+        (data as { message?: string })?.message ??
+        `Request failed (${res.status})`
+    )
+  }
+  return data
+}
+
+export async function apiJson<T>(path: string, options: ApiOptions = {}): Promise<T> {
+  const res = await apiFetch(path, options)
+  return parseResponseJson<T>(res)
 }

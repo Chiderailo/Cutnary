@@ -94,7 +94,7 @@ export default function LibraryPage() {
   }
 
   const firstClipUrl = (entry: LibraryEntry) =>
-    entry.clips?.[0]?.url ? `/editor/${entry.id}?clip=${encodeURIComponent(clipFilename(entry.clips[0].url))}` : '#'
+    entry.clips?.[0]?.url ? `/editor/${String(entry.id)}?clip=${encodeURIComponent(clipFilename(entry.clips[0].url))}` : '#'
 
   return (
     <>
@@ -187,11 +187,11 @@ export default function LibraryPage() {
                   onDelete={() => setDeleteId(entry.id)}
                   onRename={() => setRenameId(entry.id)}
                   onShare={() => {
-                    navigator.clipboard.writeText(`${typeof window !== 'undefined' ? window.location.origin : ''}/?job=${entry.id}`)
+                    navigator.clipboard.writeText(`${typeof window !== 'undefined' ? window.location.origin : ''}/?job=${String(entry.id)}`)
                   }}
                   onDownloadAll={() => handleDownloadAll(entry)}
                   editHref={firstClipUrl(entry)}
-                  viewClipsHref={`/?job=${entry.id}#clips`}
+                  viewClipsHref={`/?job=${String(entry.id)}#clips`}
                 />
               ))}
             </div>

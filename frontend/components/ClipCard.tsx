@@ -52,6 +52,7 @@ function clipFilename(url: string): string {
 }
 
 export default function ClipCard({ clip, score: scoreProp, jobId }: ClipCardProps) {
+  const jobIdStr = jobId != null ? String(jobId) : ''
   const duration = formatDuration(clip.startTime, clip.endTime)
   let scoreValue = 0
   try {
@@ -113,9 +114,9 @@ export default function ClipCard({ clip, score: scoreProp, jobId }: ClipCardProp
 
         {/* Action bar */}
         <div className="flex flex-wrap items-center gap-2">
-          {jobId && (
+          {jobIdStr && (
             <Link
-              href={`/editor/${jobId}?clip=${encodeURIComponent(clipFilename(clip.url))}`}
+              href={`/editor/${jobIdStr}?clip=${encodeURIComponent(clipFilename(clip.url))}`}
               className="flex items-center gap-2 rounded-lg border border-zinc-600 bg-zinc-800/80 
                          px-4 py-2 text-sm font-medium text-white transition-all duration-200 
                          hover:border-blue-500/50 hover:bg-zinc-700"

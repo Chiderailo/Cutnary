@@ -1,6 +1,7 @@
 """
-Transcribe video with speaker diarization using Whisper + pyannote.audio.
+Transcribe video with speaker diarization using Whisper API + AssemblyAI.
 Returns segments with speaker labels and word-level timestamps.
+Adds punctuation restoration via OpenAI.
 """
 
 import logging
@@ -9,66 +10,59 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from transcribe import extract_audio, get_word_timestamps
+from transcribe import get_word_timestamps, get_openai_client
+from speaker_diarization import diarize, assign_speakers_to_words, group_by_speaker
 
 load_dotenv(Path(__file__).parent / ".env")
 
 logger = logging.getLogger(__name__)
 
-HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
 
-
-def _speaker_for_time(diarization, start: float, end: float) -> str | None:
-    """Find the speaker with most overlap for a time range. Returns Speaker N or None."""
-    word_mid = (start + end) / 2
-    best_speaker = None
-    best_overlap = 0.0
-
-    for segment, _, speaker in diarization.itertracks(yield_label=True):
-        seg_start = segment.start
-        seg_end = segment.end
-        overlap_start = max(start, seg_start)
-        overlap_end = min(end, seg_end)
-        if overlap_end > overlap_start:
-            overlap = overlap_end - overlap_start
-            if overlap > best_overlap:
-                best_overlap = overlap
-                best_speaker = speaker
-
-    if best_speaker is None:
-        for segment, _, speaker in diarization.itertracks(yield_label=True):
-            if segment.start <= word_mid <= segment.end:
-                return speaker
-    return best_speaker
-
-
-def _speaker_to_display(speaker: str, speaker_map: dict[str, str]) -> str:
-    """Convert SPEAKER_00 to Speaker 1, etc."""
-    if speaker in speaker_map:
-        return speaker_map[speaker]
-    num = 1
-    for s in speaker_map:
-        if s.startswith("SPEAKER_") and s != speaker:
-            num += 1
-    idx = 1
+def add_punctuation(text: str, language: str = "en") -> str:
+    """Add proper punctuation and capitalization to transcript using OpenAI."""
+    if not text or not text.strip():
+        return text
     try:
-        idx = int(speaker.split("_")[-1]) + 1
-    except (ValueError, IndexError):
-        idx = len(speaker_map) + 1
-    label = f"Speaker {idx}"
-    speaker_map[speaker] = label
-    return label
+        client = get_openai_client()
+        response = client.responses.create(
+            model="gpt-4.1-mini",
+            input=f"""Add proper punctuation, capitalization and line breaks to this transcript.
+Keep all the words exactly the same - only add punctuation.
+Add periods, commas, question marks where appropriate.
+Start new paragraphs for topic changes or long pauses.
+Language: {language}
+
+Transcript:
+{text}
+
+Return ONLY the punctuated text, nothing else."""
+        )
+        result = response.output_text
+        return result.strip() if result else text
+    except Exception as e:
+        logger.exception("Punctuation restoration failed: %s", e)
+        return text
+
+
+def _apply_punctuation_to_segments(segments: list[dict], language: str) -> list[dict]:
+    """Apply punctuation to each segment's text."""
+    print(f"[PUNCTUATION] Applying to {len(segments)} segments")
+    for seg in segments:
+        if seg.get("text"):
+            seg["text"] = add_punctuation(seg["text"], language=language)
+    return segments
 
 
 def transcribe_with_speakers(
     audio_path: str,
     language: str = "en",
     speaker_separation: bool = True,
-) -> list[dict]:
+) -> dict:
     """
     Transcribe audio with optional speaker diarization.
 
-    Returns list of segments:
+    Returns dict: { "segments": [...], "note": "..."? }
+    Segments:
     [
       {
         "speaker": "Speaker 1",
@@ -82,71 +76,49 @@ def transcribe_with_speakers(
     """
     words = get_word_timestamps(audio_path, language=language)
     if not words:
-        return [{"speaker": "Speaker 1", "start": 0.0, "end": 0.0, "text": "", "words": []}]
+        return {
+            "segments": [{"speaker": "Speaker 1", "start": 0.0, "end": 0.0, "text": "", "words": []}],
+            "note": None,
+        }
 
-    speaker_map: dict[str, str] = {}
-
-    if speaker_separation and HUGGINGFACE_TOKEN:
+    note = None
+    if speaker_separation and os.getenv("ASSEMBLYAI_API_KEY"):
         try:
-            from pyannote.audio import Pipeline
-
-            pipeline = Pipeline.from_pretrained(
-                "pyannote/speaker-diarization-3.1",
-                use_auth_token=HUGGINGFACE_TOKEN,
-            )
-            diarization = pipeline(audio_path)
-
-            for w in words:
-                start = float(w.get("start", w.get("start_time", 0)))
-                end = float(w.get("end", w.get("end_time", start)))
-                sp = _speaker_for_time(diarization, start, end)
-                w["_speaker"] = _speaker_to_display(sp or "SPEAKER_00", speaker_map)
+            speaker_segments = diarize(audio_path)
+            print(f"[DIARIZATION] Found {len(speaker_segments)} speaker segments")
+            print(f"[DIARIZATION] Speakers found: {set(s['speaker'] for s in speaker_segments)}")
+            if not speaker_segments:
+                for w in words:
+                    w["speaker"] = "Speaker 1"
+                segments, _ = group_by_speaker(words)
+            else:
+                words_with_speakers = assign_speakers_to_words(words, speaker_segments)
+                segments, diar_note = group_by_speaker(words_with_speakers)
+                if diar_note:
+                    note = diar_note
         except Exception as e:
             logger.warning("Speaker diarization failed, using single speaker: %s", e)
             for w in words:
-                w["_speaker"] = "Speaker 1"
+                w["speaker"] = "Speaker 1"
+            segments, _ = group_by_speaker(words)
     else:
         for w in words:
-            w["_speaker"] = "Speaker 1"
+            w["speaker"] = "Speaker 1"
+        segments, _ = group_by_speaker(words)
 
-    segments: list[dict] = []
-    current_speaker = None
-    current_words: list[dict] = []
-    seg_start = 0.0
-    seg_end = 0.0
+    # Debug: raw transcript before punctuation
+    if segments:
+        raw_preview = segments[0].get("text", "")[:100] if segments else "none"
+        logger.info("Applying punctuation to %d segments. Raw first segment: %r", len(segments), raw_preview)
+    else:
+        logger.info("Applying punctuation to 0 segments")
 
-    for w in words:
-        start = float(w.get("start", w.get("start_time", 0)))
-        end = float(w.get("end", w.get("end_time", start)))
-        speaker = w.get("_speaker", "Speaker 1")
-        word_text = (w.get("word") or "").strip()
+    segments = _apply_punctuation_to_segments(segments, language)
 
-        word_obj = {"word": word_text, "start": round(start, 3), "end": round(end, 3), "speaker": speaker}
+    # Debug: after punctuation
+    if segments:
+        logger.info("Punctuation applied. First segment: %s", segments[0].get("text", "")[:100] if segments else "none")
+    else:
+        logger.info("Punctuation applied. No segments.")
 
-        if speaker != current_speaker:
-            if current_words:
-                segments.append({
-                    "speaker": current_speaker,
-                    "start": round(seg_start, 3),
-                    "end": round(seg_end, 3),
-                    "text": " ".join(x["word"] for x in current_words),
-                    "words": current_words,
-                })
-            current_speaker = speaker
-            current_words = [word_obj]
-            seg_start = start
-            seg_end = end
-        else:
-            current_words.append(word_obj)
-            seg_end = end
-
-    if current_words:
-        segments.append({
-            "speaker": current_speaker,
-            "start": round(seg_start, 3),
-            "end": round(seg_end, 3),
-            "text": " ".join(x["word"] for x in current_words),
-            "words": current_words,
-        })
-
-    return segments
+    return {"segments": segments, "note": note}

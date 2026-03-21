@@ -9,7 +9,7 @@ import Head from 'next/head'
 import Link from 'next/link'
 import Header from '@/components/Header'
 import ClipCard, { type ClipData } from '@/components/ClipCard'
-import { apiFetch, apiJson } from '@/lib/api'
+import { apiFetch, apiJson, parseResponseJson } from '@/lib/api'
 import { addToLibrary, getLibrary, getYouTubeThumbnail } from '@/lib/library'
 const POLL_INTERVAL_MS = 3000
 
@@ -137,8 +137,16 @@ export default function Home() {
     setPreviewError(null)
     try {
       const res = await fetch(`${YOUTUBE_OEMBED}?url=${encodeURIComponent(url)}&format=json`)
+      const text = await res.text()
+      console.log('API response:', text)
       if (!res.ok) throw new Error('Invalid or unsupported YouTube URL')
-      const data: YouTubeOEmbed = await res.json()
+      let data: YouTubeOEmbed
+      try {
+        data = JSON.parse(text) as YouTubeOEmbed
+      } catch {
+        console.error('API response was not JSON:', text)
+        throw new Error('Invalid or unsupported YouTube URL')
+      }
       setVideoPreview(data)
       setStep(3)
       requestAnimationFrame(() => {
@@ -168,19 +176,21 @@ export default function Home() {
     setTranscriptError(null)
     setTranscriptSubmitting(true)
     try {
+      const video_url = videoUrl.trim()
+      const language = transcriptLanguage
+      const speaker_separation = Boolean(speakerSeparation)
+      const payload = {
+        video_url,
+        language,
+        speaker_separation,
+        video_title: videoPreview?.title ?? 'Untitled',
+      }
+      console.log('Submitting transcript job:', { video_url, language, speaker_separation })
       const res = await apiFetch('/api/transcript', {
         method: 'POST',
-        body: JSON.stringify({
-          video_url: videoUrl.trim(),
-          language: transcriptLanguage,
-          speaker_separation: speakerSeparation,
-          video_title: videoPreview?.title ?? 'Untitled',
-        }),
+        body: JSON.stringify(payload),
       })
-      const data = await res.json().then((d: { success?: boolean; job_id?: string; error?: string }) => {
-        if (!res.ok) throw new Error(d.error ?? 'Request failed')
-        return d
-      })
+      const data = await parseResponseJson<{ success?: boolean; job_id?: string; error?: string }>(res)
       if (!data.success || !data.job_id) {
         setTranscriptError(data.error ?? 'Failed to start')
         return
@@ -229,10 +239,7 @@ export default function Home() {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      const data = await res.json().then((d: ProcessVideoResponse) => {
-        if (!res.ok) throw new Error((d as { error?: string }).error ?? 'Request failed')
-        return d
-      })
+      const data = await parseResponseJson<ProcessVideoResponse>(res)
       if (!data.success || !data.job_id) {
         setError(data.error ?? 'Failed to start processing')
         return
@@ -280,11 +287,11 @@ export default function Home() {
     if (!jobId) return
     let cancelled = false
     const run = async () => {
-      let s = await pollJob(jobId)
-      while (!cancelled && s !== 'completed' && s !== 'failed' && s != null) {
+      let s = await pollJob(String(jobId))
+        while (!cancelled && s !== 'completed' && s !== 'failed' && s != null) {
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS))
         if (cancelled) return
-        s = await pollJob(jobId)
+        s = await pollJob(String(jobId))
       }
     }
     run()
@@ -299,11 +306,12 @@ export default function Home() {
   const savedJobRef = useRef<string | null>(null)
   useEffect(() => {
     if (status !== 'completed' || !jobId || !videoUrl || clips.length === 0 || !videoPreview) return
-    if (savedJobRef.current === jobId) return
-    savedJobRef.current = jobId
+    const jobIdStr = String(jobId)
+    if (savedJobRef.current === jobIdStr) return
+    savedJobRef.current = jobIdStr
     const thumb = videoPreview.thumbnail_url || getYouTubeThumbnail(videoUrl)
     addToLibrary({
-      id: jobId,
+      id: jobIdStr,
       videoUrl,
       videoTitle: videoPreview.title,
       thumbnail: thumb,
@@ -331,8 +339,8 @@ export default function Home() {
     const id = typeof jobParam === 'string' ? jobParam : jobParam?.[0]
     if (!id) return
     apiFetch(`/api/job/${id}`)
-      .then((r) => r.json())
-      .then((data: JobResponse) => {
+      .then((r) => parseResponseJson<JobResponse>(r))
+      .then((data) => {
         if (data.success && data.job?.clips?.length) {
           setJobId(id)
           setStatus('completed')
@@ -391,7 +399,7 @@ export default function Home() {
 
   useEffect(() => {
     if (status === 'completed' && jobId && clips.length === 0) {
-      apiJson<ClipsResponse>(`/api/clips/${jobId}`)
+      apiJson<ClipsResponse>(`/api/clips/${String(jobId)}`)
         .then((data) => {
           if (data.success && data.clips?.length) {
             setClips(
@@ -805,7 +813,7 @@ export default function Home() {
               </div>
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {clips.map((clip) => (
-                  <ClipCard key={clip.id} clip={clip} jobId={jobId ?? undefined} />
+                  <ClipCard key={clip.id} clip={clip} jobId={jobId != null ? String(jobId) : undefined} />
                 ))}
               </div>
             </section>

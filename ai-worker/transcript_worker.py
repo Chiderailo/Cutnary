@@ -1,24 +1,41 @@
 """
 Transcript worker - processes transcript jobs from Redis (transcript_jobs queue).
-Downloads video, extracts audio, transcribes with optional speaker diarization.
+Downloads audio only (yt-dlp -x), transcribes with Whisper API + optional AssemblyAI speaker diarization.
 Reports to backend POST /api/transcript/:jobId/complete.
+
+ENV (ai-worker/.env):
+  BACKEND_URL       - e.g. http://localhost:3333
+  OPENAI_API_KEY    - for Whisper API
+  ASSEMBLYAI_API_KEY - for AssemblyAI speaker diarization (assemblyai.com)
+  REDIS_HOST       - default localhost
+  REDIS_PORT       - default 6379
+
+RUN:
+  cd ai-worker
+  pip install -r requirements.txt
+  py -3.11 transcript_worker.py
 """
+
+from dotenv import load_dotenv
+from pathlib import Path
+
+load_dotenv(Path(__file__).parent / ".env")
 
 import json
 import logging
 import os
 import sys
 import uuid
-from pathlib import Path
 
 import redis
 import requests
-from dotenv import load_dotenv
 
 from download import download_video
 from transcribe_speakers import transcribe_with_speakers
 
-load_dotenv(Path(__file__).parent / ".env")
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:3333")
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,10 +43,6 @@ logging.basicConfig(
     stream=sys.stdout,
 )
 logger = logging.getLogger(__name__)
-
-REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
-BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:3333")
 
 QUEUE_NAME = "transcript_jobs"
 WAIT_LIST_KEY = f"bull:{QUEUE_NAME}:wait"
@@ -59,17 +72,21 @@ def _report_complete(
     video_url: str,
     video_title: str,
     speaker_separation: bool = True,
+    note: str | None = None,
 ) -> None:
     try:
+        payload = {
+            "status": "completed",
+            "segments": segments,
+            "video_url": video_url,
+            "video_title": video_title,
+            "speaker_separation": speaker_separation,
+        }
+        if note:
+            payload["note"] = note
         resp = requests.post(
             f"{BACKEND_URL.rstrip('/')}/api/transcript/{job_id}/complete",
-            json={
-                "status": "completed",
-                "segments": segments,
-                "video_url": video_url,
-                "video_title": video_title,
-                "speaker_separation": speaker_separation,
-            },
+            json=payload,
             headers={"Content-Type": "application/json"},
             timeout=10,
         )
@@ -104,26 +121,34 @@ def process_transcript_job(redis_client: redis.Redis, job_id: str) -> None:
     speaker_separation = payload.get("speaker_separation", True)
     video_title = payload.get("video_title", "Untitled")
 
-    video_id = str(uuid.uuid4())[:8]
+    audio_id = str(uuid.uuid4())[:8]
 
     try:
         _report_status(job_id, "downloading")
-        logger.info("Downloading video: %s", video_url)
-        video_path = download_video(video_url, video_id)
+        logger.info("Downloading audio only: %s", video_url)
+        audio_path = download_video(video_url, audio_id, audio_only=True)
 
         _report_status(job_id, "transcribing")
-        from transcribe import extract_audio
-
-        audio_path = extract_audio(video_path, video_id)
         logger.info("Transcribing with speakers=%s", speaker_separation)
 
-        segments = transcribe_with_speakers(
+        result = transcribe_with_speakers(
             audio_path,
             language=language,
             speaker_separation=speaker_separation,
         )
+        segments = result["segments"]
+        note = result.get("note")
 
-        _report_complete(job_id, segments, video_url, video_title, speaker_separation)
+        # Debug: log transcript result
+        if segments:
+            first_text = segments[0].get("text", "")[:200]
+            logger.info("[DEBUG] Transcript after pipeline: %d segments, first segment: %r", len(segments), first_text)
+        else:
+            logger.info("[DEBUG] Transcript after pipeline: 0 segments")
+
+        _report_complete(
+            job_id, segments, video_url, video_title, speaker_separation, note=note
+        )
         logger.info("Transcript complete: %s segments", len(segments))
 
     except Exception as e:

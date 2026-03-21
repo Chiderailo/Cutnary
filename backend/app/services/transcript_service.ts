@@ -31,6 +31,7 @@ export interface TranscriptState {
   videoUrl?: string
   videoTitle?: string
   speakerSeparation?: boolean
+  note?: string
   error?: string
 }
 
@@ -51,7 +52,8 @@ export const transcriptService = {
     segments: TranscriptSegment[],
     videoUrl: string,
     videoTitle: string,
-    speakerSeparation?: boolean
+    speakerSeparation?: boolean,
+    note?: string
   ): void {
     transcriptStore.set(jobId, {
       status: 'completed',
@@ -59,6 +61,7 @@ export const transcriptService = {
       videoUrl,
       videoTitle,
       speakerSeparation,
+      ...(note ? { note } : {}),
     })
   },
 

@@ -162,7 +162,8 @@ function formatDuration(sec: number): string {
 
 export default function EditorPage() {
   const router = useRouter()
-  const { jobId, clip: clipParam } = router.query
+  const { jobId: jobIdRaw, clip: clipParam } = router.query
+  const jobId = Array.isArray(jobIdRaw) ? jobIdRaw[0] : jobIdRaw || ''
 
   const [job, setJob] = useState<JobResponse['job'] | null>(null)
   const [clips, setClips] = useState<ClipData[]>([])
@@ -194,7 +195,7 @@ export default function EditorPage() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const clipUrl = selectedClip ? clipFilenameFromUrl(selectedClip.url) : ''
-  const storageKey = jobId && clipUrl ? `editor_${jobId}_${clipUrl}` : ''
+  const storageKey = jobId && clipUrl ? `editor_${String(jobId)}_${clipUrl}` : ''
 
   const hasUnsavedChanges = true
   const charLimit = PLATFORM_LIMITS[platform] ?? 2200
@@ -242,8 +243,9 @@ export default function EditorPage() {
   }, [isLoading, isAuthenticated, router])
 
   useEffect(() => {
-    if (!jobId || typeof jobId !== 'string') return
-    apiJson<JobResponse>(`/api/job/${jobId}`)
+    if (!jobId) return
+    const jobIdStr = String(jobId)
+    apiJson<JobResponse>(`/api/job/${jobIdStr}`)
       .then((data) => {
         if (data.success && data.job?.clips) {
           setJob(data.job)
@@ -261,7 +263,7 @@ export default function EditorPage() {
     setSelectedClip(clip)
 
     const url = clipFilenameFromUrl(clip.url)
-    const key = jobId && typeof jobId === 'string' && url ? `editor_${jobId}_${url}` : ''
+    const key = jobId && url ? `editor_${String(jobId)}_${url}` : ''
     let stored: EditorState | null = null
     if (key) {
       try {
@@ -307,14 +309,15 @@ export default function EditorPage() {
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current) }, [])
 
   const handleExport = async () => {
-    if (!jobId || !selectedClip || typeof jobId !== 'string') return
+    if (!jobId || !selectedClip) return
+    const jobIdStr = String(jobId)
     setExportError(null)
     setExporting(true)
     setRenderStatus('rendering')
     setDownloadUrl(null)
     const clipFilename = clipFilenameFromUrl(selectedClip.url)
     try {
-      const res = await apiFetch(`/api/job/${jobId}/render`, {
+      const res = await apiFetch(`/api/job/${jobIdStr}/render`, {
         method: 'POST',
         body: JSON.stringify({
           clipUrl: clipFilename,
@@ -336,7 +339,7 @@ export default function EditorPage() {
         return
       }
       const poll = async () => {
-        const statusRes = await apiFetch(`/api/job/${jobId}/render-status`)
+        const statusRes = await apiFetch(`/api/job/${jobIdStr}/render-status`)
         const statusData = await statusRes.json()
         if (statusData.status === 'completed' && statusData.downloadUrl) {
           if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
