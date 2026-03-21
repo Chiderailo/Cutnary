@@ -7,8 +7,12 @@ import Link from 'next/link'
 import Header from '@/components/Header'
 
 const SIDEBAR_LINKS = [
+  { id: 'stories', label: 'Customer Stories', icon: '📖' },
+  { id: 'learn', label: 'Learning Center', icon: '🎓' },
   { id: 'guides', label: 'Guides & Tutorials', icon: '📖' },
   { id: 'transcript', label: 'Video Transcript', icon: '🎙' },
+  { id: 'blog', label: 'Blog', icon: '📝' },
+  { id: 'help', label: 'Help Center', icon: '❓' },
   { id: 'faq', label: 'FAQ', icon: '❓' },
   { id: 'changelog', label: 'Changelog', icon: '📋' },
 ]
@@ -81,6 +85,16 @@ export default function ResourcesPage() {
 
             {/* Main content */}
             <div className="space-y-20">
+              <section id="stories" className="scroll-mt-24">
+                <h2 className="mb-8 text-2xl font-semibold text-white">Customer Stories</h2>
+                <p className="text-zinc-400">See how creators use Cutnary to grow. Coming soon.</p>
+              </section>
+
+              <section id="learn" className="scroll-mt-24">
+                <h2 className="mb-8 text-2xl font-semibold text-white">Learning Center</h2>
+                <p className="text-zinc-400">Tutorials and courses to master AI clipping and transcripts.</p>
+              </section>
+
               {/* Guides – two featured cards + list */}
               <section id="guides" className="scroll-mt-24">
                 <h2 className="mb-8 text-2xl font-semibold text-white">Guides & Tutorials</h2>
@@ -156,6 +170,16 @@ export default function ResourcesPage() {
                     </svg>
                   </Link>
                 </div>
+              </section>
+
+              <section id="blog" className="scroll-mt-24">
+                <h2 className="mb-8 text-2xl font-semibold text-white">Blog</h2>
+                <p className="text-zinc-400">Tips, updates, and insights from the Cutnary team.</p>
+              </section>
+
+              <section id="help" className="scroll-mt-24">
+                <h2 className="mb-8 text-2xl font-semibold text-white">Help Center</h2>
+                <p className="text-zinc-400">Find answers and get support. Visit our FAQ or contact us.</p>
               </section>
 
               {/* FAQ */}
