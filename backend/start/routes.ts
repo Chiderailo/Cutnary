@@ -11,6 +11,7 @@
 import router from '@adonisjs/core/services/router'
 import { registerApiRoutes } from '#routes'
 import StorageController from '#controllers/storage_controller'
+import { startScheduledPostsProcessor } from './scheduler.js'
 
 // Health check / root
 router.get('/', () => {
@@ -21,6 +22,11 @@ router.get('/', () => {
 router.get('/storage/clips/:filename', [StorageController, 'serveClip'])
 router.get('/storage/videos/:filename', [StorageController, 'serveVideo'])
 router.get('/storage/renders/:filename', [StorageController, 'serveRender'])
+router.get('/storage/thumbnails/:filename', [StorageController, 'serveThumbnail'])
+router.get('/storage/explainers/:filename', [StorageController, 'serveExplainer'])
 
 // Video processing API routes
 registerApiRoutes()
+
+// Start scheduled posts processor (runs every 60s)
+startScheduledPostsProcessor()

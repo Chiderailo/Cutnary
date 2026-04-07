@@ -9,6 +9,15 @@ import { useRouter } from 'next/router'
 import { useAuth } from '@/context/AuthContext'
 import { getLibrary } from '@/lib/library'
 import ResourcesMegaMenu from '@/components/ResourcesMegaMenu'
+import { apiFetch, apiJson, parseResponseJson } from '@/lib/api'
+
+interface Notification {
+  id: number
+  type: string
+  message: string
+  read: boolean
+  createdAt: string
+}
 
 export default function Header() {
   const router = useRouter()
@@ -17,8 +26,11 @@ export default function Header() {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [resourcesOpen, setResourcesOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const resourcesRef = useRef<HTMLDivElement>(null)
+  const notificationsRef = useRef<HTMLDivElement>(null)
   const resourcesOpenAt = useRef<number>(0)
 
   useEffect(() => {
@@ -27,6 +39,29 @@ export default function Header() {
     window.addEventListener('cutnary-library-updated', update)
     return () => window.removeEventListener('cutnary-library-updated', update)
   }, [])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const fetchNotifications = () => {
+      apiJson<{ success: boolean; notifications?: Notification[] }>('/api/notifications')
+        .then((data) => {
+          if (data.success && data.notifications) setNotifications(data.notifications)
+        })
+        .catch(() => {})
+    }
+    fetchNotifications()
+    const t = setInterval(fetchNotifications, 30000)
+    return () => clearInterval(t)
+  }, [isAuthenticated])
+
+  const unreadCount = notifications.filter((n) => !n.read).length
+
+  const markAsRead = async (id: number) => {
+    try {
+      await apiFetch(`/api/notifications/${id}/read`, { method: 'POST' })
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
+    } catch {}
+  }
 
   useEffect(() => {
     setResourcesOpen(false)
@@ -41,6 +76,7 @@ export default function Header() {
         if (Date.now() - resourcesOpenAt.current < 100) return
         setResourcesOpen(false)
       }
+      if (notificationsRef.current && !notificationsRef.current.contains(t)) setNotificationsOpen(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -72,18 +108,29 @@ export default function Header() {
         Home
       </Link>
       {isAuthenticated && (
-        <Link
-          href="/library"
-          onClick={closeAll}
-          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white"
-        >
-          Library
+        <>
+          <Link
+            href="/library"
+            onClick={closeAll}
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white"
+          >
+            Library
           {libraryCount > 0 && (
             <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs font-medium text-white">
               {libraryCount}
             </span>
           )}
         </Link>
+          <Link
+            href="/social"
+            onClick={closeAll}
+            className={`rounded-lg px-3 py-2 text-sm transition-colors ${
+              router.pathname === '/social' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+            }`}
+          >
+            Social
+          </Link>
+        </>
       )}
       <div
         ref={resourcesRef}
@@ -163,6 +210,59 @@ export default function Header() {
 
         {/* Auth / user */}
         <div className="flex shrink-0 items-center gap-2">
+          {isAuthenticated && (
+            <div className="relative" ref={notificationsRef}>
+              <button
+                type="button"
+                onClick={() => setNotificationsOpen((o) => !o)}
+                className="relative rounded-lg p-2 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                aria-label="Notifications"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                  />
+                </svg>
+                {unreadCount > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-violet-600 text-[10px] font-bold text-white">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+              {notificationsOpen && (
+                <div className="absolute right-0 top-full z-50 mt-1 w-80 max-h-96 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900 py-1 shadow-xl">
+                  <div className="border-b border-zinc-800 px-4 py-2">
+                    <p className="text-sm font-medium text-white">Notifications</p>
+                  </div>
+                  {notifications.length === 0 ? (
+                    <p className="px-4 py-6 text-center text-sm text-zinc-500">No notifications</p>
+                  ) : (
+                    notifications.slice(0, 20).map((n) => (
+                      <button
+                        key={n.id}
+                        type="button"
+                        onClick={() => {
+                          if (!n.read) markAsRead(n.id)
+                          setNotificationsOpen(false)
+                        }}
+                        className={`block w-full px-4 py-3 text-left text-sm transition-colors hover:bg-zinc-800 ${
+                          n.read ? 'text-zinc-400' : 'text-white font-medium'
+                        }`}
+                      >
+                        {n.message}
+                        <p className="mt-0.5 text-xs text-zinc-500">
+                          {new Date(n.createdAt).toLocaleString()}
+                        </p>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           {isAuthenticated ? (
             <div className="relative" ref={dropdownRef}>
               <button
@@ -172,14 +272,24 @@ export default function Header() {
                 aria-expanded={dropdownOpen}
                 aria-haspopup="true"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-medium text-white">
-                  {user?.initials ?? user?.email?.slice(0, 2).toUpperCase() ?? '?'}
+                <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-blue-600 text-sm font-medium text-white">
+                  {user?.profilePictureUrl ? (
+                    <img src={user.profilePictureUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    user?.initials ?? user?.email?.slice(0, 2).toUpperCase() ?? '?'
+                  )}
                 </div>
                 <span className="hidden sm:inline">{user?.name ?? user?.email ?? 'User'}</span>
               </button>
 
               {dropdownOpen && (
-                <div className="absolute right-0 mt-1 w-48 rounded-lg border border-zinc-800 bg-zinc-900 py-1 shadow-xl">
+                <div className="absolute right-0 z-50 mt-1 w-52 rounded-lg border border-zinc-800 bg-zinc-900 py-1 shadow-xl">
+                  <div className="border-b border-zinc-800 px-4 py-2">
+                    <p className="truncate text-sm font-medium text-white">
+                      {user?.name ?? user?.fullName ?? user?.email ?? 'User'}
+                    </p>
+                    <p className="truncate text-xs text-zinc-500">{user?.email}</p>
+                  </div>
                   <Link
                     href="/library"
                     className="block px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white"
@@ -192,7 +302,21 @@ export default function Header() {
                     className="block px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white"
                     onClick={() => setDropdownOpen(false)}
                   >
-                    Settings
+                    Profile
+                  </Link>
+                  <Link
+                    href="/social"
+                    className="block px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                    onClick={() => setDropdownOpen(false)}
+                  >
+                    Social
+                  </Link>
+                  <Link
+                    href="/billing"
+                    className="block px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                    onClick={() => setDropdownOpen(false)}
+                  >
+                    Billing
                   </Link>
                   <button
                     type="button"
@@ -202,7 +326,7 @@ export default function Header() {
                     }}
                     className="block w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white"
                   >
-                    Logout
+                    Sign Out
                   </button>
                 </div>
               )}
@@ -256,13 +380,24 @@ export default function Header() {
               Home
             </Link>
             {isAuthenticated && (
-              <Link
-                href="/library"
-                onClick={closeAll}
-                className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-white"
-              >
-                Library {libraryCount > 0 && `(${libraryCount})`}
-              </Link>
+              <>
+                <Link
+                  href="/library"
+                  onClick={closeAll}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-white"
+                >
+                  Library {libraryCount > 0 && `(${libraryCount})`}
+                </Link>
+                <Link href="/social" onClick={closeAll} className="rounded-lg px-3 py-2.5 text-sm text-white">
+                  Social
+                </Link>
+                <Link href="/settings" onClick={closeAll} className="rounded-lg px-3 py-2.5 text-sm text-white">
+                  Profile
+                </Link>
+                <Link href="/billing" onClick={closeAll} className="rounded-lg px-3 py-2.5 text-sm text-white">
+                  Billing
+                </Link>
+              </>
             )}
             <div>
               <button

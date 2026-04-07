@@ -21,6 +21,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   // App
   APP_KEY: Env.schema.secret(),
   APP_URL: Env.schema.string({ format: 'url', tld: false }),
+  FRONTEND_URL: Env.schema.string.optional(),
 
   // Session
   SESSION_DRIVER: Env.schema.enum(['cookie', 'memory', 'database'] as const),
@@ -38,4 +39,15 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   // Storage – local path for clips/videos (default: ../storage)
   STORAGE_PATH: Env.schema.string.optional(),
+
+  // Social OAuth
+  YOUTUBE_CLIENT_ID: Env.schema.string.optional(),
+  YOUTUBE_CLIENT_SECRET: Env.schema.string.optional(),
+  TIKTOK_CLIENT_KEY: Env.schema.string.optional(),
+  TIKTOK_CLIENT_SECRET: Env.schema.string.optional(),
+  FACEBOOK_APP_ID: Env.schema.string.optional(),
+  FACEBOOK_APP_SECRET: Env.schema.string.optional(),
+
+  // AI (Gemini for hashtags, etc.)
+  GOOGLE_API_KEY: Env.schema.string.optional(),
 })

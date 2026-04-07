@@ -1,6 +1,7 @@
 boto3
 assemblyai
 yt-dlp
+Pillow
 openai
 openai-whisper
 opencv-python
@@ -8,3 +9,5 @@ redis
 python-dotenv
 requests
 numpy
+google-generativeai
+google-cloud-texttospeech

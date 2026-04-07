@@ -35,7 +35,11 @@ def _get_client():
     )
 
 
-def upload_to_r2(local_path: str, filename: str | None = None) -> str | None:
+def upload_to_r2(
+    local_path: str,
+    filename: str | None = None,
+    content_type: str = "video/mp4",
+) -> str | None:
     """
     Upload a file to Cloudflare R2 bucket.
 
@@ -63,7 +67,7 @@ def upload_to_r2(local_path: str, filename: str | None = None) -> str | None:
             str(path),
             R2_BUCKET_NAME,
             key,
-            ExtraArgs={"ContentType": "video/mp4"},
+            ExtraArgs={"ContentType": content_type},
         )
         return f"{public_base}/{key}"
     except ClientError as e:

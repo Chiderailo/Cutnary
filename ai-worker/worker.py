@@ -8,12 +8,43 @@ import json
 import logging
 import os
 import uuid
+import time
+import sys
 
 import requests
 
 from download import download_video
 
 logger = logging.getLogger(__name__)
+DEBUG_LOG_PATH = "c:/Users/iloch/.cursor/projects/cutnary/debug-c6756d.log"
+DEBUG_SESSION_ID = "c6756d"
+DEBUG_RUN_ID = f"worker-{int(time.time() * 1000)}"
+
+# Force UTF-8 output when worker runs outside queue_worker.py.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
+
+def _debug_log(hypothesis_id: str, location: str, message: str, data: dict) -> None:
+    # region agent log
+    try:
+        payload = {
+            "sessionId": DEBUG_SESSION_ID,
+            "runId": DEBUG_RUN_ID,
+            "hypothesisId": hypothesis_id,
+            "location": location,
+            "message": message,
+            "data": data,
+            "timestamp": int(time.time() * 1000),
+        }
+        with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+    # endregion
 
 
 def _report_status(job_id: str | None, backend_url: str | None, status: str, error: str | None = None) -> None:
@@ -55,12 +86,12 @@ def _report_complete(
 from transcribe import extract_audio, transcribe_audio, get_word_timestamps
 from emotion_hooks import detect_emotional_hooks
 from generate_clips import generate_clips
-from emoji_captions import add_emojis_to_transcript
-from silence_cut import get_video_duration_seconds, remove_silence
+from silence_cut import get_video_duration_seconds
 from broll_matcher import insert_broll
-from engagement_model import predict_engagement
 from r2_upload import upload_to_r2
-from titles import generate_viral_description
+from subtitles import add_subtitles_to_clip
+from titles import batch_viral_descriptions_and_scores
+from thumbnail_generator import create_thumbnail
 
 
 def top_segments(segments, limit=10):
@@ -141,14 +172,8 @@ def process_video(
         print("\nDownloading video...")
         video_path = download_video(url, video_id)
 
-        # Skip silence removal for short videos (<5 min) to avoid unnecessary re-encoding
-        duration = get_video_duration_seconds(video_path)
-        if duration is not None and duration < 300:  # < 5 minutes
-            print("\nSkipping silence removal (video < 5 min)")
-        else:
-            print("\nRemoving silence...")
-            cleaned_video = f"../storage/videos/{video_id}_clean.mp4"
-            video_path = remove_silence(video_path, cleaned_video)
+        # Silence removal intentionally removed from the pipeline to avoid
+        # audio-leading-lip desync from audio-only trimming.
 
         # Step 2: Transcribe
         _report_status(job_id, backend_url, "transcribing")
@@ -158,25 +183,18 @@ def process_video(
         print("\nTranscribing audio...")
         transcript = transcribe_audio(audio_path, language=language)
 
-        print("\nTranscript:")
-        print(transcript)
-
-        print("\nEnhancing captions with emojis...")
-        transcript_with_emojis = add_emojis_to_transcript(transcript)
+        print("\nTranscript preview:")
+        print((transcript or "")[:1000])
 
         print("\nGetting word timestamps...")
         words = get_word_timestamps(audio_path, language=language)
 
-        # Step 3: Subtitles are generated per-segment in generate_clips (for sync)
-        _report_status(job_id, backend_url, "adding_subtitles")
-        print("\nWord timestamps ready for per-segment subtitles")
-
-        # Step 4: Detect viral moments
+        # Step 3: Detect viral moments
         _report_status(job_id, backend_url, "detecting_clips")
         print("\nDetecting emotional hooks...")
         duration = get_video_duration_seconds(video_path) or 60.0
         segments = detect_emotional_hooks(
-            transcript_with_emojis, video_duration=duration, clip_length=clip_length
+            transcript, video_duration=duration, clip_length=clip_length
         )
 
         # Constrain segment durations to clip_length
@@ -194,22 +212,39 @@ def process_video(
                 {"start": 15, "end": 25, "emotion_score": 65}
             ]
 
-        # Step 5: Generate clips
+        # Step 4: Generate clips (without subtitles)
         _report_status(job_id, backend_url, "generating_clips")
         print("\nGenerating clips...")
-
         clip_paths = generate_clips(
-            video_path,
-            segments,
-            words,
+            video_path=video_path,
+            segments=segments,
             video_id=video_id,
             aspect_ratio=aspect_ratio,
         )
-
         print("\nClips generated:", clip_paths)
 
+        # Step 5: Add subtitles to each clip
+        _report_status(job_id, backend_url, "adding_subtitles")
+        print("Adding subtitles...")
+        final_paths = []
+        for clip_path in clip_paths:
+            final = add_subtitles_to_clip(clip_path)
+            final_paths.append(final)
+            print(f"[WORKER] Subtitled: {final}")
+
+        clip_paths = final_paths
+
+        # OPTIMIZATION: One batch AI call for all clips (viral_description + score)
+        segments_data = [
+            {"index": i, "transcript": transcript_for_segment(words, s["start"], s["end"])}
+            for i, s in enumerate(segments)
+        ]
+        print("\nBatch generating viral descriptions and scores...")
+        batch_results = batch_viral_descriptions_and_scores(segments_data)
+        batch_by_index = {r["index"]: r for r in batch_results}
+
         final_clips = []
-        for clip_path, seg in zip(clip_paths, segments):
+        for i, (clip_path, seg) in enumerate(zip(clip_paths, segments)):
             # B-roll only for 9:16 portrait
             if aspect_ratio == "9:16":
                 print("\nInserting B-roll for:", clip_path)
@@ -222,23 +257,12 @@ def process_video(
             else:
                 clip_url = clip_path
 
-            segment_text = transcript_for_segment(
-                words, seg["start"], seg["end"]
-            )
-            print("\nPredicting engagement score...")
-            raw_score = predict_engagement(segment_text)
-            try:
-                score = json.loads(raw_score)["score"] if isinstance(raw_score, str) else raw_score
-                score = int(score) if isinstance(score, (int, float)) else 50
-            except (json.JSONDecodeError, KeyError, TypeError):
-                score = 50
-            print("Segment transcript:", segment_text)
-            print("Predicted engagement:", score)
-            print("\nGenerating viral description...")
-            viral_desc = generate_viral_description(segment_text)
-            print("Viral description:", viral_desc)
+            br = batch_by_index.get(i, {})
+            segment_text = transcript_for_segment(words, seg["start"], seg["end"])
+            viral_desc = (br.get("viral_description") or segment_text or "Watch this")[:80]
+            score = int(br.get("score", 50)) if isinstance(br.get("score"), (int, float)) else 50
+            print(f"Segment {i}: score={score}, viral_desc={viral_desc[:50]}...")
 
-            # Offset word timestamps: Whisper gives absolute video times; clip starts at seg["start"]
             seg_start, seg_end = seg["start"], seg["end"]
             adjusted_words = []
             for w in words:
@@ -254,6 +278,8 @@ def process_video(
                         "start": rel_start,
                         "end": rel_end,
                     })
+            subtitle_words = adjusted_words
+
             final_clips.append({
                 "url": clip_url,
                 "start_time": seg["start"],
@@ -261,7 +287,7 @@ def process_video(
                 "description": viral_desc,
                 "viral_description": viral_desc,
                 "score": score,
-                "words": adjusted_words,
+                "words": subtitle_words,
             })
 
         print("\nFinal clips ranked:")
@@ -269,11 +295,14 @@ def process_video(
         for c in final_clips:
             print(c)
 
-        # Upload each clip to R2; fall back to localhost URL if upload fails
+        # Upload each clip to R2; generate thumbnails; fall back to localhost URL if upload fails
         base_url = (backend_url or "").rstrip("/")
         worker_dir = os.path.dirname(os.path.abspath(__file__))
+        storage_root = os.path.normpath(os.path.join(worker_dir, "..", "storage"))
+        thumb_dir = os.path.join(storage_root, "thumbnails")
+        os.makedirs(thumb_dir, exist_ok=True)
         clips_payload = []
-        for c in final_clips:
+        for i, c in enumerate(final_clips):
             local_path = os.path.normpath(os.path.join(worker_dir, "..", c["url"]))
             filename = os.path.basename(c["url"].replace("\\", "/"))
             r2_url = upload_to_r2(local_path, filename)
@@ -282,6 +311,32 @@ def process_video(
             else:
                 clip_url = f"{base_url}/storage/clips/{filename}" if base_url else c["url"]
                 logger.warning("R2 upload failed for %s, using localhost URL", filename)
+
+            thumbnail_url = None
+            thumb_filename = f"{video_id}_clip{i + 1}.jpg"
+            thumb_path = os.path.join(thumb_dir, thumb_filename)
+            try:
+                # Thumbnail: actual speech from spoken words, not viral/marketing hook
+                spoken = " ".join(
+                    (w.get("word") or "").strip() for w in (c.get("words") or []) if w.get("word")
+                ).strip()
+                thumb_script = spoken[:500] if spoken else (
+                    transcript_for_segment(words, c["start_time"], c["end_time"]) or ""
+                )
+                create_thumbnail(
+                    video_path=local_path,
+                    output_path=thumb_path,
+                    script=thumb_script,
+                    style="tiktok" if aspect_ratio == "9:16" else "youtube",
+                )
+                r2_thumb = upload_to_r2(thumb_path, f"thumbnails/{thumb_filename}", content_type="image/jpeg")
+                if r2_thumb:
+                    thumbnail_url = r2_thumb
+                else:
+                    thumbnail_url = f"{base_url}/storage/thumbnails/{thumb_filename}" if base_url else None
+            except Exception as e:
+                logger.warning("Thumbnail generation failed for clip %s: %s", i + 1, e)
+
             clips_payload.append({
                 "url": clip_url,
                 "start_time": c["start_time"],
@@ -290,7 +345,21 @@ def process_video(
                 "viral_description": c["viral_description"],
                 "score": c["score"],
                 "words": c.get("words", []),
+                "thumbnail_url": thumbnail_url,
             })
+            # region agent log
+            _debug_log(
+                "H5",
+                "worker.py:process_video:payload",
+                "final clip payload path selection",
+                {
+                    "index": i,
+                    "local_input": local_path,
+                    "clip_url_sent": clip_url,
+                    "raw_clip_url": c["url"],
+                },
+            )
+            # endregion
 
         _report_complete(job_id, backend_url, clips_payload)
         print("\nProcessing complete.")

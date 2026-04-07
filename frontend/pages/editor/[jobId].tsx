@@ -463,6 +463,7 @@ export default function EditorPage() {
               <VideoPlayer
                 src={selectedClip.url}
                 subtitles={subtitles}
+                words={selectedClip.words}
                 currentSubtitleId={currentSubtitleId}
                 style={style}
                 position={position}

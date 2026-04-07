@@ -29,6 +29,8 @@ export default class ClipsController {
       })
     }
 
+    // Always filter by jobId - never return clips from other jobs
+    console.log('Fetching clips for job:', params.jobId)
     const clips = await jobService.getClipsByJobId(params.jobId)
     return response.json({
       success: true,

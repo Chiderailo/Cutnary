@@ -4,7 +4,7 @@
  * Redirects to /auth/login on 401.
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
+import { getApiBase } from './api_base'
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null
@@ -26,7 +26,34 @@ export async function apiFetch(path: string, options: ApiOptions = {}): Promise<
     headers.set('Authorization', `Bearer ${token}`)
   }
 
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers })
+  const apiBase = getApiBase()
+  let res: Response
+  try {
+    res = await fetch(`${apiBase}${path}`, { ...init, headers })
+  } catch {
+    // Localhost fallback: some setups bind backend to localhost only (not 127.0.0.1), or vice versa.
+    try {
+      if (apiBase.includes('127.0.0.1')) {
+        const fallbackBase = apiBase.replace('127.0.0.1', 'localhost')
+        res = await fetch(`${fallbackBase}${path}`, { ...init, headers })
+      } else if (apiBase.includes('localhost')) {
+        const fallbackBase = apiBase.replace('localhost', '127.0.0.1')
+        res = await fetch(`${fallbackBase}${path}`, { ...init, headers })
+      } else {
+        throw new Error('no-localhost-fallback')
+      }
+    } catch {
+      throw new Error(
+        `Network error for ${apiBase}${path}. Make sure frontend and backend use the same host (localhost vs 127.0.0.1).`
+      )
+    }
+  }
+
+  if (!res) {
+    throw new Error(
+      `Network error for ${apiBase}${path}. Make sure frontend and backend use the same host (localhost vs 127.0.0.1).`
+    )
+  }
 
   if (res.status === 401 && !skipAuth) {
     if (typeof window !== 'undefined') {

@@ -10,6 +10,9 @@ export default class UserTransformer extends BaseTransformer<User> {
       'createdAt',
       'updatedAt',
       'initials',
+      'profilePictureUrl',
+      'authProvider',
+      'subscriptionPlan',
     ])
     return { ...obj, name: obj.fullName }
   }

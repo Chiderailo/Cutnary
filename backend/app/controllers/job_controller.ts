@@ -19,6 +19,11 @@ import type { ClipData } from '#services/job_service'
 
 const getBaseUrl = () => (env.get('APP_URL') ?? 'http://localhost:3333').replace(/\/$/, '')
 
+/** Strip BullMQ job_ prefix from worker callback IDs */
+function resolveJobId(id: string): string {
+  return id.startsWith('job_') ? id.slice(5) : id
+}
+
 export default class JobController {
   /**
    * GET /api/job/:id
@@ -26,13 +31,14 @@ export default class JobController {
    */
   async show({ params, response, auth }: HttpContext) {
     const user = auth.getUserOrFail()
-    const job = await jobService.getJob(params.id, user.id)
+    const jobId = resolveJobId(String(params.id))
+    const job = await jobService.getJob(jobId, user.id)
 
     if (!job) {
       return response.status(404).json({
         success: false,
         error: 'Job not found',
-        job_id: params.id,
+        job_id: jobId,
       })
     }
 
@@ -55,22 +61,23 @@ export default class JobController {
    * Worker reports progress at each pipeline step (no auth - worker callback)
    */
   async updateStatus({ params, request, response }: HttpContext) {
+    const jobId = resolveJobId(String(params.id))
     const { status, error } = await request.validateUsing(jobStatusValidator)
-    const job = await jobService.getJobForWorker(params.id)
+    const job = await jobService.getJobForWorker(jobId)
 
     if (!job) {
       return response.status(404).json({
         success: false,
         error: 'Job not found',
-        job_id: params.id,
+        job_id: jobId,
       })
     }
 
-    await jobService.updateJobStatus(params.id, status, { error })
+    await jobService.updateJobStatus(jobId, status, { error })
 
     return response.json({
       success: true,
-      job_id: params.id,
+      job_id: jobId,
       status,
     })
   }
@@ -80,14 +87,15 @@ export default class JobController {
    * Called by Python AI worker to report job completion (no auth - worker callback)
    */
   async complete({ params, request, response }: HttpContext) {
+    const jobId = resolveJobId(String(params.id))
     const payload = await request.validateUsing(jobCompleteValidator)
-    const job = await jobService.getJobForWorker(params.id)
+    const job = await jobService.getJobForWorker(jobId)
 
     if (!job) {
       return response.status(404).json({
         success: false,
         error: 'Job not found',
-        job_id: params.id,
+        job_id: jobId,
       })
     }
 
@@ -115,9 +123,17 @@ export default class JobController {
           ? `${getBaseUrl()}/storage/clips/${basename(urlStr)}`
           : clipUrl
       const clipWords = (c as { words?: Array<{ word: string; start: number; end: number }> }).words
+      const thumbnailUrl = (c as { thumbnail_url?: string }).thumbnail_url
+      const thumbUrlStr = thumbnailUrl ? String(thumbnailUrl) : undefined
+      const fullThumbUrl =
+        thumbUrlStr?.startsWith('http')
+          ? thumbUrlStr
+          : thumbUrlStr
+            ? `${getBaseUrl()}/storage/thumbnails/${basename(thumbUrlStr.replace(/\\/g, '/'))}`
+            : undefined
       return {
         id: c.id ?? randomUUID(),
-        jobId: params.id,
+        jobId: jobId,
         url: fullUrl,
         startTime: c.start_time ?? 0,
         endTime: c.end_time ?? 0,
@@ -125,17 +141,18 @@ export default class JobController {
         viralDescription: (c as { viral_description?: string }).viral_description,
         score: Number.isFinite(score) ? score : undefined,
         words: Array.isArray(clipWords) ? clipWords : undefined,
+        thumbnailUrl: fullThumbUrl,
       }
     })
 
-    await jobService.updateJobStatus(params.id, payload.status, {
+    await jobService.updateJobStatus(jobId, payload.status, {
       error: payload.error,
       clips,
     })
 
     return response.json({
       success: true,
-      job_id: params.id,
+      job_id: jobId,
       status: payload.status,
     })
   }

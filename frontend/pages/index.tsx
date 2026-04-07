@@ -10,7 +10,8 @@ import Link from 'next/link'
 import Header from '@/components/Header'
 import ClipCard, { type ClipData } from '@/components/ClipCard'
 import { apiFetch, apiJson, parseResponseJson } from '@/lib/api'
-import { addToLibrary, getLibrary, getYouTubeThumbnail } from '@/lib/library'
+import { addToLibrary, getLibrary, getYouTubeThumbnail, getYouTubeVideoId, removeClipFromLibrary, updateLibraryEntry } from '@/lib/library'
+import { useAuth } from '@/context/AuthContext'
 const POLL_INTERVAL_MS = 3000
 
 const YOUTUBE_OEMBED = 'https://www.youtube.com/oembed'
@@ -96,8 +97,16 @@ const PROGRESS_MAP: Record<JobStatus, { percent: number; label: string }> = {
   failed: { percent: 0, label: 'Failed' },
 }
 
+const CLIP_LENGTH_MAP: Record<string, string> = {
+  auto: 'auto',
+  '30s': '30-60s',
+  '60s': '60-90s',
+  '90s': '90-3min',
+}
+
 export default function Home() {
   const router = useRouter()
+  const { isAuthenticated } = useAuth()
   const [step, setStep] = useState<FlowStep>(1)
   const [videoUrl, setVideoUrl] = useState('')
   const [videoPreview, setVideoPreview] = useState<YouTubeOEmbed | null>(null)
@@ -122,6 +131,27 @@ export default function Home() {
   const [transcriptError, setTranscriptError] = useState<string | null>(null)
   const [transcriptSubmitting, setTranscriptSubmitting] = useState(false)
   const previewRef = useRef<HTMLElement | null>(null)
+  const prefsLoaded = useRef(false)
+  const jobIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    jobIdRef.current = jobId
+  }, [jobId])
+
+  useEffect(() => {
+    if (!isAuthenticated || prefsLoaded.current) return
+    prefsLoaded.current = true
+    apiJson<{ success: boolean; preferences?: { default_aspect_ratio: string; default_clip_length: string; default_language: string } }>('/api/user/preferences')
+      .then((data) => {
+        if (data.success && data.preferences) {
+          const p = data.preferences
+          setAspectRatio(p.default_aspect_ratio)
+          setClipLength(CLIP_LENGTH_MAP[p.default_clip_length] ?? p.default_clip_length)
+          setTranscriptLanguage(p.default_language)
+        }
+      })
+      .catch(() => {})
+  }, [isAuthenticated])
 
   const LANGUAGES = [
     { value: 'en', label: 'English' },
@@ -197,6 +227,22 @@ export default function Home() {
       }
       setTranscriptJobId(data.job_id)
       setTranscriptStatus('queued')
+
+      const videoId = getYouTubeVideoId(video_url)
+      const thumbnail = videoId
+        ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
+        : '/placeholder-thumbnail.png'
+      addToLibrary({
+        id: data.job_id,
+        type: 'transcript',
+        videoUrl: video_url,
+        videoTitle: videoPreview?.title ?? 'Untitled Video',
+        thumbnail,
+        createdAt: new Date().toISOString(),
+        status: 'processing',
+        language: transcriptLanguage,
+        speakerSeparation,
+      })
     } catch (err) {
       setTranscriptError(err instanceof Error ? err.message : 'Request failed')
     } finally {
@@ -206,10 +252,22 @@ export default function Home() {
 
   const pollTranscript = useCallback(async (id: string) => {
     try {
-      const data = await apiJson<{ success: boolean; status: TranscriptStatus; job_id?: string }>(`/api/transcript/${id}`)
+      const data = await apiJson<{
+        success: boolean
+        status: TranscriptStatus
+        job_id?: string
+        segments?: Array<{ speaker?: string }>
+      }>(`/api/transcript/${id}`)
       setTranscriptStatus(data.status)
-      if (data.status === 'completed') router.push(`/transcript/${id}`)
-      if (data.status === 'failed') setTranscriptError('Transcript failed')
+      if (data.status === 'completed') {
+        const speakers = new Set((data.segments ?? []).map((s) => s.speaker).filter(Boolean))
+        updateLibraryEntry(id, { status: 'completed', speakerCount: speakers.size || undefined })
+        router.push(`/transcript/${id}`)
+      }
+      if (data.status === 'failed') {
+        updateLibraryEntry(id, { status: 'failed' })
+        setTranscriptError('Transcript failed')
+      }
       return data.status
     } catch {
       return null
@@ -225,7 +283,12 @@ export default function Home() {
   const handleGenerateClips = async () => {
     if (!videoUrl.trim()) return
     setError(null)
+    setSavedToLibrary(false)
     setClips([])
+    setJobId(null)
+    setStatus(null)
+    setJobError(null)
+    jobIdRef.current = null
     setIsSubmitting(true)
     try {
       const payload = {
@@ -244,7 +307,9 @@ export default function Home() {
         setError(data.error ?? 'Failed to start processing')
         return
       }
-      setJobId(data.job_id)
+      const newJobId = data.job_id
+      setJobId(newJobId)
+      jobIdRef.current = newJobId
       setStatus('queued')
       setStep(4)
     } catch (err) {
@@ -255,27 +320,49 @@ export default function Home() {
   }
 
   const pollJob = useCallback(async (id: string): Promise<JobStatus | null> => {
+    const currentJobId = String(id)
     try {
       const data = await apiJson<JobResponse>(`/api/job/${id}`)
       if (!data.success || !data.job) {
         setError(data.job?.error ?? 'Failed to fetch job')
         return null
       }
+
+      // Prevent older polls from updating state after a new job starts
+      if (currentJobId !== jobIdRef.current) {
+        return data.job.status
+      }
+
       setStatus(data.job.status)
       if (data.job.error) setJobError(data.job.error)
-      if (data.job.clips?.length) {
-        setClips(
-          data.job.clips.map((c) => ({
-            id: c.id,
-            url: c.url,
-            startTime: c.startTime ?? (c as { start_time?: number }).start_time,
-            endTime: c.endTime ?? (c as { end_time?: number }).end_time,
-            description: c.description,
-            viralDescription: (c as { viralDescription?: string }).viralDescription,
-            score: (c as { score?: number }).score,
-          }))
-        )
+
+      if (data.job.status === 'completed') {
+        // Fetch clips ONLY for the current job (never rely on data.job.clips)
+        const clipsRes = await apiJson<ClipsResponse>(`/api/clips/${currentJobId}`)
+        if (jobIdRef.current !== currentJobId) return data.job.status
+
+        const newClips =
+          clipsRes.success && clipsRes.clips
+            ? clipsRes.clips.map((c, i) => ({
+                id: c.id ?? `clip-${i}`,
+                url: c.url,
+                startTime: c.startTime ?? (c as { start_time?: number }).start_time,
+                endTime: c.endTime ?? (c as { end_time?: number }).end_time,
+                description: c.description,
+                viralDescription: c.viralDescription,
+                score: c.score,
+                thumbnailUrl: c.thumbnailUrl,
+              }))
+            : []
+
+        setClips([])
+        setClips(newClips)
       }
+
+      if (data.job.status === 'failed') {
+        setClips([])
+      }
+
       return data.job.status
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Poll failed')
@@ -307,19 +394,24 @@ export default function Home() {
   useEffect(() => {
     if (status !== 'completed' || !jobId || !videoUrl || clips.length === 0 || !videoPreview) return
     const jobIdStr = String(jobId)
+    if (jobIdRef.current !== jobIdStr) return
     if (savedJobRef.current === jobIdStr) return
     savedJobRef.current = jobIdStr
-    const thumb = videoPreview.thumbnail_url || getYouTubeThumbnail(videoUrl)
+    const videoId = getYouTubeVideoId(videoUrl)
+    const thumbnail = videoId
+      ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
+      : videoPreview.thumbnail_url || getYouTubeThumbnail(videoUrl) || '/placeholder-thumbnail.png'
     addToLibrary({
       id: jobIdStr,
+      type: 'clips',
       videoUrl,
       videoTitle: videoPreview.title,
-      thumbnail: thumb,
+      thumbnail,
       createdAt: new Date().toISOString(),
       status: 'completed',
       aspectRatio,
       clipLength,
-      clips: clips.map((c) => ({
+      clips: clips.map((c, i) => ({
         url: c.url,
         score: typeof c.score === 'number' ? c.score : undefined,
         description: c.description,
@@ -327,7 +419,8 @@ export default function Home() {
         duration: c.startTime != null && c.endTime != null ? c.endTime - c.startTime : undefined,
         startTime: c.startTime,
         endTime: c.endTime,
-        id: c.id,
+        id: c.id ?? `clip-${i}`,
+        thumbnailUrl: c.thumbnailUrl,
       })),
     })
     setSavedToLibrary(true)
@@ -338,21 +431,21 @@ export default function Home() {
     const jobParam = router.query.job
     const id = typeof jobParam === 'string' ? jobParam : jobParam?.[0]
     if (!id) return
-    apiFetch(`/api/job/${id}`)
-      .then((r) => parseResponseJson<JobResponse>(r))
+    apiJson<ClipsResponse>(`/api/clips/${id}`)
       .then((data) => {
-        if (data.success && data.job?.clips?.length) {
+        if (data.success && data.clips?.length) {
           setJobId(id)
           setStatus('completed')
           setClips(
-            data.job.clips.map((c) => ({
-              id: c.id,
+            data.clips.map((c, i) => ({
+              id: c.id ?? `clip-${i}`,
               url: c.url,
               startTime: c.startTime ?? (c as { start_time?: number }).start_time,
               endTime: c.endTime ?? (c as { end_time?: number }).end_time,
               description: c.description,
-              viralDescription: (c as { viralDescription?: string }).viralDescription,
-              score: (c as { score?: number }).score,
+              viralDescription: c.viralDescription,
+              score: c.score,
+              thumbnailUrl: c.thumbnailUrl,
             }))
           )
           setStep(5)
@@ -373,6 +466,7 @@ export default function Home() {
               description: c.description,
               viralDescription: c.viralDescription,
               score: c.score,
+              thumbnailUrl: c.thumbnailUrl,
             }))
           )
           setVideoPreview({
@@ -397,28 +491,6 @@ export default function Home() {
     }
   }, [router.query.job, step, clips.length])
 
-  useEffect(() => {
-    if (status === 'completed' && jobId && clips.length === 0) {
-      apiJson<ClipsResponse>(`/api/clips/${String(jobId)}`)
-        .then((data) => {
-          if (data.success && data.clips?.length) {
-            setClips(
-              data.clips.map((c) => ({
-                id: c.id,
-                url: c.url,
-                startTime: c.startTime ?? (c as { start_time?: number }).start_time,
-                endTime: c.endTime ?? (c as { end_time?: number }).end_time,
-                description: c.description,
-                viralDescription: (c as { viralDescription?: string }).viralDescription,
-                score: (c as { score?: number }).score,
-              }))
-            )
-          }
-        })
-        .catch(() => {})
-    }
-  }, [status, jobId, clips.length])
-
   const handleReset = () => {
     setStep(1)
     setVideoUrl('')
@@ -433,7 +505,21 @@ export default function Home() {
     setTranscriptJobId(null)
     setTranscriptStatus(null)
     setTranscriptError(null)
+    jobIdRef.current = null
   }
+
+  const handleRemoveClip = useCallback(
+    (clipIndex: number) => {
+      if (jobId == null) return
+      removeClipFromLibrary(String(jobId), clipIndex)
+      setClips((prev) => {
+        const next = prev.filter((_, i) => i !== clipIndex)
+        if (next.length === 0) setSavedToLibrary(false)
+        return next
+      })
+    },
+    [jobId]
+  )
 
   const showToolsGrid = step === 3 && videoPreview && toolMode === null
   const showClipSettings = step === 3 && videoPreview && toolMode === 'clips'
@@ -802,8 +888,13 @@ export default function Home() {
           {/* Results – fades in when clips load */}
           {step === 5 && clips.length > 0 && (
             <section id="clips" className="mb-16 animate-[fadeIn_0.5s_ease-out_forwards] opacity-0 [animation-fill-mode:forwards]">
-              <div className="mb-6 flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-white">Your clips</h2>
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-semibold text-white">Your clips</h2>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    Add AI voice explainer to any clip with the 🎙️ Add AI Voice button
+                  </p>
+                </div>
                 <button
                   onClick={handleReset}
                   className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-400 hover:border-zinc-600 hover:text-white"
@@ -812,8 +903,18 @@ export default function Home() {
                 </button>
               </div>
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {clips.map((clip) => (
-                  <ClipCard key={clip.id} clip={clip} jobId={jobId != null ? String(jobId) : undefined} />
+                {clips.map((clip, clipIndex) => (
+                  <ClipCard
+                    key={clip.url}
+                    clip={clip}
+                    jobId={jobId != null ? String(jobId) : undefined}
+                    clipIndex={clipIndex}
+                    canRemove={
+                      savedToLibrary ||
+                      (jobId != null && getLibrary().some((e) => e.id === String(jobId) && e.type === 'clips'))
+                    }
+                    onRemoveClip={handleRemoveClip}
+                  />
                 ))}
               </div>
             </section>

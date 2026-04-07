@@ -42,4 +42,22 @@ export default class StorageController {
     response.header('Accept-Ranges', 'bytes')
     return response.stream(createReadStream(filePath))
   }
+
+  async serveThumbnail({ params, response }: HttpContext) {
+    const storagePath = env.get('STORAGE_PATH') ?? join(process.cwd(), '..', 'storage')
+    const filePath = join(storagePath, 'thumbnails', params.filename)
+    if (!existsSync(filePath)) return response.status(404).send('Not found')
+    response.header('Content-Type', 'image/jpeg')
+    response.header('Cache-Control', 'public, max-age=86400')
+    return response.stream(createReadStream(filePath))
+  }
+
+  async serveExplainer({ params, response }: HttpContext) {
+    const storagePath = env.get('STORAGE_PATH') ?? join(process.cwd(), '..', 'storage')
+    const filePath = join(storagePath, 'explainers', params.filename)
+    if (!existsSync(filePath)) return response.status(404).send('Not found')
+    response.header('Content-Type', 'video/mp4')
+    response.header('Accept-Ranges', 'bytes')
+    return response.stream(createReadStream(filePath))
+  }
 }

@@ -33,6 +33,9 @@ export default class Clip extends BaseModel {
   @column()
   declare viralDescription: string | null
 
+  @column()
+  declare thumbnailUrl: string | null
+
   @column({
     prepare: (value: unknown) => (value ? JSON.stringify(value) : null),
     consume: (value: string | null) => (value ? JSON.parse(value) : null),

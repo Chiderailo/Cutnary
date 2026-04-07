@@ -19,6 +19,11 @@ import { addRenderJob } from '#queue'
 const getBaseUrl = () =>
   (env.get('APP_URL') ?? 'http://localhost:3333').replace(/\/$/, '')
 
+/** Strip BullMQ render_ prefix from worker callback IDs */
+function resolveJobId(id: string): string {
+  return id.startsWith('render_') ? id.slice(7) : id
+}
+
 export default class RenderController {
   /**
    * POST /api/job/:jobId/render
@@ -152,7 +157,7 @@ export default class RenderController {
    * Called by AI worker when rendering is done
    */
   async renderComplete({ params, request, response }: HttpContext) {
-    const jobId = params.jobId
+    const jobId = resolveJobId(String(params.jobId))
     const body = request.body() as { url?: string; error?: string }
 
     if (body.error) {

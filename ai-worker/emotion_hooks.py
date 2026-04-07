@@ -1,16 +1,19 @@
 import json
 import os
+import re
 from pathlib import Path
 
 from dotenv import load_dotenv
 from openai import OpenAI
 
+from api_utils import call_with_retry, rate_limited_call
+
 load_dotenv(Path(__file__).parent / ".env")
+
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
 def _clip_length_to_seconds(clip_length: str) -> tuple[float, float]:
-    """Map clip_length to (min_sec, max_sec) for segment duration."""
     mapping = {
         "auto": (20, 90),
         "<30s": (10, 30),
@@ -22,62 +25,131 @@ def _clip_length_to_seconds(clip_length: str) -> tuple[float, float]:
     return mapping.get(clip_length, (20, 90))
 
 
-def _filter_segments_by_duration(segments: list[dict], min_dur: float, max_dur: float) -> list[dict]:
-    """Filter segments to match duration. If none pass, adjust closest ones to fit."""
-    out = [s for s in segments if min_dur <= (s.get("end", 0) - s.get("start", 0)) <= max_dur]
-    if out:
-        return out
-    if not segments:
-        return []
-    adjusted = []
-    for s in segments:
-        start = s.get("start", 0)
-        end = s.get("end", 0)
-        dur = end - start
-        if dur > max_dur:
-            adjusted.append({**s, "end": start + max_dur})
-        elif dur < min_dur:
-            adjusted.append({**s, "end": start + min_dur})
-        else:
-            adjusted.append(s)
-    return adjusted
-
-
 def detect_emotional_hooks(
     transcript: str, video_duration: float = 60.0, clip_length: str = "auto"
 ):
     min_dur, max_dur = _clip_length_to_seconds(clip_length)
-    target_duration = (min_dur + max_dur) / 2
-    num_clips = max(3, min(10, int(video_duration / target_duration)))
+    min_clips = max(3, int(video_duration / 60))
 
-    prompt = f"""Analyze this transcript and identify {num_clips} viral moments.
+    print(f"[HOOKS] Video duration: {video_duration:.0f}s, expecting min {min_clips} clips")
+    print(f"[HOOKS] Transcript length: {len(transcript)} chars")
 
-Score each segment using:
-- emotional intensity
-- curiosity
-- surprise
-- storytelling hook
+    system_prompt = """You are a viral social media content expert who has 
+helped grow channels to millions of followers. You find EVERY clip-worthy 
+moment without exception. You are thorough and never miss a moment.
+You always return valid JSON only."""
 
-Each segment MUST be {min_dur}-{max_dur} seconds long (end minus start).
-Return ONLY a JSON array with exactly {num_clips} objects like:
-[
-  {{"start":10,"end":20,"emotion_score":92}},
-  {{"start":35,"end":48,"emotion_score":88}}
-]
+    user_prompt = f"""Find every single clip-worthy moment in this {video_duration:.0f} second video transcript.
 
-Transcript:
+WHAT MAKES A GOOD CLIP (find ALL of these):
+- Funny moments, jokes, reactions, awkward situations
+- Surprising facts or shocking revelations
+- Emotional moments - heartwarming, sad, touching
+- Relatable situations everyone understands  
+- Controversial or debate-worthy opinions
+- Useful tips or valuable information
+- Great storytelling with a clear arc
+- Unexpected twists in conversation
+- Strong reactions and responses
+- Inspiring or motivational statements
+- Casual but entertaining dialogue
+- ANY moment that would make someone stop scrolling
+
+RULES:
+- Clip duration: {min_dur:.0f}-{max_dur:.0f} seconds each
+- Start 2 seconds BEFORE the interesting moment
+- End 2 seconds AFTER it concludes
+- Clips must NOT overlap
+- For a {video_duration:.0f}s video find AT LEAST {min_clips} clips
+- More clips is ALWAYS better - never return less than {min_clips}
+- Every minute of content has at least one good moment
+
+TRANSCRIPT:
 {transcript}
-"""
 
-    response = client.responses.create(
-        model="gpt-4.1-mini",
-        input=prompt
-    )
+Return ONLY a valid JSON array with no other text before or after:
+[
+  {{
+    "start": 0.0,
+    "end": 35.0,
+    "description": "Why this is viral-worthy"
+  }}
+]"""
 
-    text = response.output_text
+    def _call():
+        return rate_limited_call(
+            lambda: client.responses.create(
+                model="gpt-4.1",
+                input=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                max_output_tokens=4000
+            )
+        )
 
+    response = call_with_retry(_call)
+    text = response.output_text.strip()
+
+    print(f"[HOOKS] Raw GPT response ({len(text)} chars):")
+    print(text[:1000])
+
+    # Try multiple JSON extraction methods
+    segments = None
+
+    # Method 1: Direct parse
     try:
         segments = json.loads(text)
-        return _filter_segments_by_duration(segments, min_dur, max_dur)
     except Exception:
-        return [{"start": 5, "end": min(5 + max_dur, 30), "emotion_score": 70}]
+        pass
+
+    # Method 2: Extract JSON array with regex
+    if not segments:
+        try:
+            match = re.search(r'\[[\s\S]*\]', text)
+            if match:
+                segments = json.loads(match.group())
+        except Exception:
+            pass
+
+    # Method 3: Extract from code block
+    if not segments:
+        try:
+            match = re.search(r'```(?:json)?\s*([\s\S]*?)```', text)
+            if match:
+                segments = json.loads(match.group(1))
+        except Exception:
+            pass
+
+    if not segments:
+        print(f"[HOOKS] ERROR: Could not parse GPT response as JSON!")
+        print(f"[HOOKS] Full response was: {text}")
+        # Generate evenly spaced clips as fallback
+        segments = []
+        clip_dur = min(max_dur, 60)
+        t = 5.0
+        while t + clip_dur < video_duration:
+            segments.append({
+                "start": t,
+                "end": t + clip_dur,
+                "description": "Auto-generated clip"
+            })
+            t += clip_dur + 5
+        print(f"[HOOKS] Using fallback: {len(segments)} evenly spaced clips")
+
+    # Add emotion_score if missing
+    for s in segments:
+        if "emotion_score" not in s:
+            s["emotion_score"] = 70
+        # Clamp to video duration
+        s["start"] = max(0, float(s.get("start", 0)))
+        s["end"] = min(video_duration, float(s.get("end", s["start"] + 30)))
+
+    # Remove clips that are too short
+    segments = [s for s in segments if s["end"] - s["start"] >= min_dur * 0.5]
+
+    print(f"[HOOKS] Final: {len(segments)} clips found")
+    for i, s in enumerate(segments):
+        print(f"[HOOKS] Clip {i+1}: {s['start']:.1f}s-{s['end']:.1f}s ({s['end']-s['start']:.0f}s) - {s.get('description','')[:60]}")
+
+    return segments

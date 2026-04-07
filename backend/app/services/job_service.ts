@@ -39,6 +39,7 @@ export interface ClipData {
   viralDescription?: string
   score?: number
   words?: ClipWord[]
+  thumbnailUrl?: string
 }
 
 export interface JobData {
@@ -67,14 +68,18 @@ export class JobService {
     userId?: number | null
   ): Promise<JobData> {
     const id = this.generateJobId()
-    const job = await Job.create({
-      id,
-      userId: userId ?? null,
-      videoUrl,
-      status: 'queued',
-      aspectRatio: settings?.aspect_ratio ?? '9:16',
-      clipLength: settings?.clip_length ?? 'auto',
-    })
+
+    const job = new Job()
+    job.id = id
+    job.userId = userId ?? null
+    job.videoUrl = videoUrl
+    job.status = 'queued'
+    job.aspectRatio = settings?.aspect_ratio ?? '9:16'
+    job.clipLength = settings?.clip_length ?? 'auto'
+    await job.save()
+
+    console.log('Created job with id:', job.id, 'type:', typeof job.id)
+
     return this.toJobData(job)
   }
 
@@ -104,6 +109,9 @@ export class JobService {
     if (options?.clips?.length) {
       await Clip.query().where('job_id', id).delete()
       for (const c of options.clips) {
+        const wordsCount = Array.isArray(c.words) ? c.words.length : 0
+        // Keep Whisper word timings so the frontend editor can render correct synced captions.
+        console.log('Saving clip words for job:', id, 'clip url:', c.url, 'wordsCount:', wordsCount)
         await Clip.create({
           jobId: id,
           url: c.url,
@@ -113,6 +121,8 @@ export class JobService {
           startTime: c.startTime ?? null,
           endTime: c.endTime ?? null,
           viralDescription: c.viralDescription ?? null,
+          words: c.words ?? null,
+          thumbnailUrl: c.thumbnailUrl ?? null,
         })
       }
     }
@@ -121,10 +131,11 @@ export class JobService {
   }
 
   async getClipsByJobId(jobId: string): Promise<ClipData[]> {
+    console.log('JobService.getClipsByJobId for job:', jobId)
     const clips = await Clip.query().where('job_id', jobId)
     return clips.map((c) => ({
       id: String(c.id),
-      jobId: c.jobId,
+      jobId: String(c.jobId),
       url: c.url,
       startTime: c.startTime ?? undefined,
       endTime: c.endTime ?? undefined,
@@ -132,13 +143,14 @@ export class JobService {
       viralDescription: c.viralDescription ?? undefined,
       score: c.score ?? undefined,
       words: c.words ?? undefined,
+      thumbnailUrl: c.thumbnailUrl ?? undefined,
     }))
   }
 
   private async toJobData(job: Job): Promise<JobData> {
     const clips = await job.related('clips').query()
     return {
-      id: job.id,
+      id: String(job.id),
       videoUrl: job.videoUrl,
       status: job.status,
       createdAt: job.createdAt.toJSDate(),
@@ -151,7 +163,7 @@ export class JobService {
       error: job.error ?? undefined,
       clips: clips.map((c) => ({
         id: String(c.id),
-        jobId: c.jobId,
+        jobId: String(c.jobId),
         url: c.url,
         startTime: c.startTime ?? undefined,
         endTime: c.endTime ?? undefined,
@@ -159,6 +171,7 @@ export class JobService {
         viralDescription: c.viralDescription ?? undefined,
         score: c.score ?? undefined,
         words: c.words ?? undefined,
+        thumbnailUrl: c.thumbnailUrl ?? undefined,
       })),
     }
   }

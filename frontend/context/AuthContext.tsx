@@ -8,8 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
+import { apiFetch } from '../lib/api'
 
 export interface User {
   id: number
@@ -17,6 +16,7 @@ export interface User {
   fullName: string | null
   name?: string | null
   initials?: string
+  profilePictureUrl?: string | null
 }
 
 interface AuthContextValue {
@@ -26,6 +26,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<{ user: User; token: string }>
   register: (name: string, email: string, password: string) => Promise<{ user: User; token: string }>
   logout: () => Promise<void>
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -48,19 +49,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
     try {
-      const res = await fetch(`${API_BASE}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const res = await apiFetch('/api/auth/me')
       if (res.ok) {
         const data = await res.json()
         const u = data.data ?? data
-        setUser({
-          id: u.id,
-          email: u.email,
-          fullName: u.fullName ?? u.name ?? null,
-          name: u.name ?? u.fullName ?? null,
-          initials: u.initials,
-        })
+        if (u?.id) {
+          setUser({
+            id: u.id,
+            email: u.email,
+            fullName: u.fullName ?? u.name ?? null,
+            name: u.name ?? u.fullName ?? null,
+            initials: u.initials,
+            profilePictureUrl: u.profilePictureUrl ?? null,
+          })
+        }
       } else {
         localStorage.removeItem('cutnary_token')
         setUser(null)
@@ -79,7 +81,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string) => {
-      const res = await fetch(`${API_BASE}/api/auth/login`, {
+      const res = await apiFetch('/api/auth/login', {
+        skipAuth: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -99,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         fullName: u.fullName ?? u.name ?? null,
         name: u.name ?? u.fullName ?? null,
         initials: u.initials,
+        profilePictureUrl: u.profilePictureUrl ?? null,
       }
       setUser(userData)
       return { user: userData, token }
@@ -108,7 +112,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(
     async (name: string, email: string, password: string) => {
-      const res = await fetch(`${API_BASE}/api/auth/register`, {
+      const res = await apiFetch('/api/auth/register', {
+        skipAuth: true,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password, passwordConfirmation: password }),
@@ -128,6 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         fullName: u.fullName ?? u.name ?? name ?? null,
         name: u.name ?? u.fullName ?? name ?? null,
         initials: u.initials,
+        profilePictureUrl: u.profilePictureUrl ?? null,
       }
       setUser(userData)
       return { user: userData, token }
@@ -139,10 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = localStorage.getItem('cutnary_token')
     if (token) {
       try {
-        await fetch(`${API_BASE}/api/auth/logout`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        await apiFetch('/api/auth/logout', { method: 'POST' })
       } catch {
         /* ignore */
       }
@@ -160,6 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
+        refreshUser: fetchMe,
       }}
     >
       {children}

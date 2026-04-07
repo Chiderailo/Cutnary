@@ -36,6 +36,7 @@ import env from '#start/env'
 export const VIDEO_JOBS_QUEUE_NAME = 'video_jobs'
 export const RENDER_JOBS_QUEUE_NAME = 'render_jobs'
 export const TRANSCRIPT_JOBS_QUEUE_NAME = 'transcript_jobs'
+export const EXPLAINER_JOBS_QUEUE_NAME = 'explainer_jobs'
 
 /** Processing settings passed to the worker */
 export interface VideoJobSettings {
@@ -121,10 +122,12 @@ export async function addVideoProcessingJob(
   videoUrl: string,
   settings?: VideoJobSettings
 ): Promise<string> {
+  const originalId = String(jobId)
+  const bullJobId = `job_${originalId}`
   const queue = await getVideoJobsQueue()
 
   const payload: VideoJobPayload = {
-    job_id: jobId,
+    job_id: originalId,
     video_url: videoUrl,
     status: 'queued',
     aspect_ratio: settings?.aspect_ratio ?? '9:16',
@@ -132,7 +135,7 @@ export async function addVideoProcessingJob(
     ...(settings && Object.keys(settings).length ? { settings } : {}),
   }
 
-  const job = await queue.add('process', payload, { jobId })
+  const job = await queue.add('process', payload, { jobId: bullJobId })
   return job.id!
 }
 
@@ -174,9 +177,9 @@ export async function getRenderJobsQueue(): Promise<Queue> {
 }
 
 export async function addRenderJob(payload: RenderJobPayload): Promise<string> {
+  const bullJobId = `render_${String(payload.job_id)}`
   const queue = await getRenderJobsQueue()
-  const jobId = payload.job_id
-  const job = await queue.add('render', payload, { jobId })
+  const job = await queue.add('render', payload, { jobId: bullJobId })
   return job.id!
 }
 
@@ -209,7 +212,44 @@ export async function addTranscriptJob(
   jobId: string,
   payload: TranscriptJobPayload
 ): Promise<string> {
+  const bullJobId = `transcript_${String(jobId)}`
   const queue = await getTranscriptJobsQueue()
-  const job = await queue.add('transcript', payload, { jobId })
+  const job = await queue.add('transcript', payload, { jobId: bullJobId })
+  return job.id!
+}
+
+/** Explainer job payload */
+export interface ExplainerJobPayload {
+  job_id: string
+  clip_url: string
+  style: string
+  voice: string
+  original_audio_volume: number
+}
+
+let _explainerQueue: Queue | undefined
+
+export async function getExplainerJobsQueue(): Promise<Queue> {
+  if (!_explainerQueue) {
+    const connection = await getConnection()
+    _explainerQueue = new Queue(EXPLAINER_JOBS_QUEUE_NAME, {
+      connection,
+      defaultJobOptions: {
+        attempts: 2,
+        backoff: { type: 'fixed', delay: 2000 },
+        removeOnComplete: 50,
+      },
+    })
+  }
+  return _explainerQueue
+}
+
+export async function addExplainerJob(
+  jobId: string,
+  payload: ExplainerJobPayload
+): Promise<string> {
+  const bullJobId = `explainer_${String(jobId)}`
+  const queue = await getExplainerJobsQueue()
+  const job = await queue.add('explain', payload, { jobId: bullJobId })
   return job.id!
 }

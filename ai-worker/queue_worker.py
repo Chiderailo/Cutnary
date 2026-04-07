@@ -7,6 +7,9 @@ BullMQ stores jobs in Redis with these key patterns:
 
 We use BLPOP on the wait list to block until a job is available, then fetch the job
 payload from the hash and process it.
+
+Rate limiting (0.5s between API calls) and retry with exponential backoff are handled
+in api_utils.py - used by emotion_hooks, titles, engagement_model, transcribe.
 """
 
 import json
@@ -19,6 +22,13 @@ import redis
 from dotenv import load_dotenv
 
 from worker import process_video
+
+# Force UTF-8 console output on Windows to avoid charmap encode crashes.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
 
 # Configure logging
 logging.basicConfig(
@@ -62,6 +72,15 @@ def process_job(redis_client: redis.Redis, job_id: str) -> None:
         logger.error("Invalid JSON for job %s: %s", job_id, e)
         return
 
+    raw_job_id = payload.get("job_id")
+    if raw_job_id is None or raw_job_id == "":
+        logger.error("Job %s has no job_id in payload: %s", job_id, payload)
+        return
+
+    db_job_id = str(raw_job_id)
+    print(f"Full payload: {payload}")
+    print(f"BullMQ ID: {job_id}, Database ID: {db_job_id}")
+
     video_url = payload.get("video_url")
 
     if not video_url:
@@ -82,14 +101,14 @@ def process_job(redis_client: redis.Redis, job_id: str) -> None:
     )
     process_video(
         video_url,
-        job_id=job_id,
+        job_id=db_job_id,
         backend_url=BACKEND_URL,
         language=language,
         aspect_ratio=aspect_ratio,
         clip_length=clip_length,
         caption_style=caption_style,
     )
-    logger.info("Completed job: %s", job_id)
+    logger.info("Completed job: %s (BullMQ: %s)", db_job_id, job_id)
 
 
 def run_worker() -> None:

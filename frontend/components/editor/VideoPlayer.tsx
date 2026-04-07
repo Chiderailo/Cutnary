@@ -39,6 +39,7 @@ export type FontSize = 'small' | 'medium' | 'large'
 interface VideoPlayerProps {
   src: string
   subtitles: Subtitle[]
+  words?: SubtitleWord[]
   currentSubtitleId: string | null
   style: CaptionStyle
   position: CaptionPosition
@@ -69,6 +70,7 @@ const POSITION_CLASSES: Record<CaptionPosition, string> = {
 export default function VideoPlayer({
   src,
   subtitles,
+  words,
   currentSubtitleId,
   style,
   position,
@@ -87,6 +89,41 @@ export default function VideoPlayer({
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [builtSubtitles, setBuiltSubtitles] = useState<Subtitle[]>([])
+
+  useEffect(() => {
+    if (!words || words.length === 0) {
+      setBuiltSubtitles([])
+      return
+    }
+    const phrases: Subtitle[] = []
+    let current: SubtitleWord[] = []
+    for (const word of words) {
+      current.push(word)
+      if (current.length >= 4) {
+        phrases.push({
+          id: `sub-${phrases.length}`,
+          start: current[0].start,
+          end: current[current.length - 1].end,
+          text: current.map((w) => w.word).join(' '),
+          words: [...current],
+        })
+        current = []
+      }
+    }
+    if (current.length > 0) {
+      phrases.push({
+        id: `sub-${phrases.length}`,
+        start: current[0].start,
+        end: current[current.length - 1].end,
+        text: current.map((w) => w.word).join(' '),
+        words: [...current],
+      })
+    }
+    setBuiltSubtitles(phrases)
+  }, [words])
+
+  const displaySubtitles = builtSubtitles.length > 0 ? builtSubtitles : subtitles
 
   // Use clip time for subtitle sync (subtitles are in clip-relative time 0..duration)
   const displayTime = currentTime
@@ -159,7 +196,7 @@ export default function VideoPlayer({
     return `${m}:${s.toString().padStart(2, '0')}`
   }
 
-  const activeSubtitle = subtitles.find(
+  const activeSubtitle = displaySubtitles.find(
     (s) => displayTime >= s.start && displayTime <= s.end
   ) ?? null
 

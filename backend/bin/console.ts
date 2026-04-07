@@ -11,6 +11,10 @@
 |
 */
 
+// Always use port 3333 so frontend NEXT_PUBLIC_API_URL stays consistent
+process.env.PORT = '3333'
+process.env.HOST = 'localhost'
+
 await import('reflect-metadata')
 const { Ignitor, prettyPrintError } = await import('@adonisjs/core')
 

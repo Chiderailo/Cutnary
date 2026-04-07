@@ -15,6 +15,11 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { transcriptService } from '#services/transcript_service'
 import { addTranscriptJob } from '#queue'
 
+/** Strip BullMQ transcript_ prefix from worker callback IDs */
+function resolveJobId(id: string): string {
+  return id.startsWith('transcript_') ? id.slice(11) : id
+}
+
 export default class TranscriptController {
   /**
    * POST /api/transcript
@@ -73,19 +78,20 @@ export default class TranscriptController {
    */
   async show({ params, response, auth }: HttpContext) {
     const user = auth.getUserOrFail()
-    const state = transcriptService.getState(params.jobId)
+    const jobId = resolveJobId(String(params.jobId))
+    const state = transcriptService.getState(jobId)
 
     if (!state) {
       return response.status(404).json({
         success: false,
         error: 'Transcript not found',
-        job_id: params.jobId,
+        job_id: jobId,
       })
     }
 
     return response.json({
       success: true,
-      job_id: params.jobId,
+      job_id: jobId,
       status: state.status,
       segments: state.segments,
       video_url: state.videoUrl,
@@ -100,16 +106,18 @@ export default class TranscriptController {
    * POST /api/transcript/:jobId/status - Worker callback
    */
   async updateStatus({ params, request, response }: HttpContext) {
+    const jobId = resolveJobId(String(params.jobId))
     const body = request.body() as { status?: string; error?: string }
     const status = body.status as 'queued' | 'downloading' | 'transcribing' | 'completed' | 'failed'
-    transcriptService.setStatus(params.jobId, status ?? 'queued', body.error)
-    return response.json({ success: true, job_id: params.jobId, status })
+    transcriptService.setStatus(jobId, status ?? 'queued', body.error)
+    return response.json({ success: true, job_id: jobId, status })
   }
 
   /**
    * POST /api/transcript/:jobId/complete - Worker callback
    */
   async complete({ params, request, response }: HttpContext) {
+    const jobId = resolveJobId(String(params.jobId))
     const body = request.body() as {
       status?: string
       error?: string
@@ -127,10 +135,10 @@ export default class TranscriptController {
     }
 
     if (body.status === 'failed' || body.error) {
-      transcriptService.setFailed(params.jobId, body.error ?? 'Unknown error')
+      transcriptService.setFailed(jobId, body.error ?? 'Unknown error')
     } else if (body.segments) {
       transcriptService.setCompleted(
-        params.jobId,
+        jobId,
         body.segments,
         body.video_url ?? '',
         body.video_title ?? 'Untitled',
@@ -141,7 +149,7 @@ export default class TranscriptController {
 
     return response.json({
       success: true,
-      job_id: params.jobId,
+      job_id: jobId,
       status: 'completed',
     })
   }

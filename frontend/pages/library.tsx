@@ -8,8 +8,14 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
 import { useAuth } from '@/context/AuthContext'
-import { getLibrary, removeFromLibrary, updateLibraryEntry, type LibraryEntry } from '@/lib/library'
+import {
+  getLibrary,
+  removeFromLibrary,
+  updateLibraryEntry,
+  type LibraryEntry,
+} from '@/lib/library'
 import Header from '@/components/Header'
+import PostCampaignModal from '@/components/PostCampaignModal'
 
 const CLIP_LENGTH_LABELS: Record<string, string> = {
   auto: 'Auto (<90s)',
@@ -49,7 +55,9 @@ export default function LibraryPage() {
   const [sort, setSort] = useState<'newest' | 'oldest' | 'most_clips'>('newest')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleteType, setDeleteType] = useState<'clips' | 'transcript' | null>(null)
   const [renameId, setRenameId] = useState<string | null>(null)
+  const [postCampaignOpen, setPostCampaignOpen] = useState(false)
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.replace('/auth/login')
@@ -77,10 +85,11 @@ export default function LibraryPage() {
     return (b.clips?.length ?? 0) - (a.clips?.length ?? 0)
   })
 
-  const handleDelete = (id: string) => {
+  const handleDeleteProject = (id: string) => {
     removeFromLibrary(id)
     setEntries(getLibrary())
     setDeleteId(null)
+    setDeleteType(null)
   }
 
   const handleDownloadAll = (entry: LibraryEntry) => {
@@ -93,8 +102,27 @@ export default function LibraryPage() {
     })
   }
 
+  const handleDeleteEntry = (entryId: string) => {
+    if (!confirm('Delete this clip collection? This cannot be undone.')) return
+
+    const existing = JSON.parse(localStorage.getItem('cutnary_library') || '[]')
+    const filtered = existing.filter((e: LibraryEntry) => e.id !== entryId) as LibraryEntry[]
+
+    localStorage.setItem('cutnary_library', JSON.stringify(filtered))
+    setEntries(filtered)
+    setDeleteId(null)
+    setDeleteType(null)
+  }
+
   const firstClipUrl = (entry: LibraryEntry) =>
-    entry.clips?.[0]?.url ? `/editor/${String(entry.id)}?clip=${encodeURIComponent(clipFilename(entry.clips[0].url))}` : '#'
+    entry.type === 'transcript'
+      ? `/transcript/${entry.id}`
+      : entry.clips?.[0]?.url
+        ? `/editor/${String(entry.id)}?clip=${encodeURIComponent(clipFilename(entry.clips[0].url))}`
+        : '#'
+
+  const viewHref = (entry: LibraryEntry) =>
+    entry.type === 'transcript' ? `/transcript/${entry.id}` : `/?job=${String(entry.id)}#clips`
 
   return (
     <>
@@ -115,6 +143,13 @@ export default function LibraryPage() {
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <h1 className="text-2xl font-bold text-white">My Library</h1>
             <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => setPostCampaignOpen(true)}
+                className="flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-2.5 font-medium text-white shadow-lg transition-all hover:bg-violet-500"
+              >
+                <span>📤</span>
+                Post Clips
+              </button>
               <input
                 type="search"
                 placeholder="Search by title or date…"
@@ -184,14 +219,17 @@ export default function LibraryPage() {
                   entry={entry}
                   index={i}
                   viewMode={viewMode}
-                  onDelete={() => setDeleteId(entry.id)}
+                  onDelete={() => handleDeleteEntry(entry.id)}
                   onRename={() => setRenameId(entry.id)}
                   onShare={() => {
-                    navigator.clipboard.writeText(`${typeof window !== 'undefined' ? window.location.origin : ''}/?job=${String(entry.id)}`)
+                    const base = typeof window !== 'undefined' ? window.location.origin : ''
+                    navigator.clipboard.writeText(
+                      entry.type === 'transcript' ? `${base}/transcript/${entry.id}` : `${base}/?job=${String(entry.id)}`
+                    )
                   }}
                   onDownloadAll={() => handleDownloadAll(entry)}
                   editHref={firstClipUrl(entry)}
-                  viewClipsHref={`/?job=${String(entry.id)}#clips`}
+                  viewHref={viewHref(entry)}
                 />
               ))}
             </div>
@@ -201,12 +239,29 @@ export default function LibraryPage() {
 
       {deleteId && (
         <DeleteModal
-          onConfirm={() => handleDelete(deleteId)}
-          onCancel={() => setDeleteId(null)}
+          title={deleteType === 'transcript' ? 'Delete transcript?' : 'Delete clip group?'}
+          body={
+            deleteType === 'transcript'
+              ? 'This removes the transcript project from your library. It does not delete files on the server.'
+              : 'This removes the whole clip group from your library. It does not delete files on the server.'
+          }
+          onConfirm={() => handleDeleteProject(deleteId)}
+          onCancel={() => {
+            setDeleteId(null)
+            setDeleteType(null)
+          }}
         />
+      )}
+
+      {postCampaignOpen && (
+        <PostCampaignModal onClose={() => setPostCampaignOpen(false)} />
       )}
     </>
   )
+}
+
+const LANGUAGE_LABELS: Record<string, string> = {
+  en: 'EN', es: 'ES', fr: 'FR', de: 'DE', it: 'IT', pt: 'PT',
 }
 
 function LibraryCard({
@@ -218,7 +273,7 @@ function LibraryCard({
   onShare,
   onDownloadAll,
   editHref,
-  viewClipsHref,
+  viewHref,
 }: {
   entry: LibraryEntry
   index: number
@@ -228,19 +283,27 @@ function LibraryCard({
   onShare: () => void
   onDownloadAll: () => void
   editHref: string
-  viewClipsHref: string
+  viewHref: string
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
 
+  const isTranscript = entry.type === 'transcript'
+  const clipCount = entry.clips?.length ?? 0
+  const clipLengthLabel = entry.clipLength ? (CLIP_LENGTH_LABELS[entry.clipLength] ?? entry.clipLength) : ''
+
   const statusConfig = {
     completed: { dot: 'bg-blue-500', label: 'Completed', spin: false },
-    processing: { dot: 'bg-blue-400', label: 'Processing', spin: true },
+    processing: { dot: 'bg-amber-500', label: 'Processing', spin: true },
     failed: { dot: 'bg-red-500', label: 'Failed', spin: false },
   }
   const sc = statusConfig[entry.status] ?? statusConfig.completed
 
-  const clipCount = entry.clips?.length ?? 0
-  const clipLengthLabel = CLIP_LENGTH_LABELS[entry.clipLength] ?? entry.clipLength
+  const typeBadge =
+    entry.status === 'processing'
+      ? { bg: 'bg-amber-500/90', label: 'Processing', spin: true }
+      : isTranscript
+        ? { bg: 'bg-blue-600/90', label: 'Transcript', spin: false }
+        : { bg: 'bg-violet-600/90', label: 'AI Clips', spin: false }
 
   return (
     <div
@@ -262,10 +325,15 @@ function LibraryCard({
               </svg>
             </div>
           )}
-          <div className="absolute left-2 top-2 rounded bg-blue-600/90 px-2 py-0.5 text-xs font-medium text-white">
-            {clipCount} clips
+          <div className={`absolute left-2 top-2 flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium text-white ${typeBadge.bg}`}>
+            {typeBadge.spin && <span className="inline-block h-2 w-2 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+            {typeBadge.label}
+            {!isTranscript && clipCount > 0 && <span>· {clipCount} clips</span>}
+            {isTranscript && entry.speakerCount != null && entry.speakerCount > 0 && (
+              <span>· {entry.speakerCount} speakers</span>
+            )}
           </div>
-          <div className={`absolute right-2 top-2 flex items-center gap-1.5 rounded px-2 py-0.5 text-xs ${sc.dot === 'bg-blue-500' ? 'bg-blue-500/90' : sc.dot === 'bg-red-500' ? 'bg-red-500/90' : 'bg-blue-400/90'} text-white`}>
+          <div className={`absolute right-2 top-2 flex items-center gap-1.5 rounded px-2 py-0.5 text-xs ${sc.dot === 'bg-blue-500' ? 'bg-blue-500/90' : sc.dot === 'bg-red-500' ? 'bg-red-500/90' : sc.dot === 'bg-amber-500' ? 'bg-amber-500/90' : 'bg-blue-400/90'} text-white`}>
             {sc.spin && <span className="inline-block h-2 w-2 animate-spin rounded-full border-2 border-white border-t-transparent" />}
             {!sc.spin && <span className="h-2 w-2 rounded-full bg-white" />}
             {sc.label}
@@ -276,11 +344,20 @@ function LibraryCard({
           <h3 className="truncate font-semibold text-white">{entry.videoTitle}</h3>
           <p className="mt-0.5 text-sm text-zinc-500">{formatRelativeTime(entry.createdAt)}</p>
           <div className="mt-2 flex flex-wrap gap-1">
-            <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">{entry.aspectRatio}</span>
-            <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">{clipLengthLabel}</span>
+            {entry.language && (
+              <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
+                {LANGUAGE_LABELS[entry.language] ?? entry.language.toUpperCase()}
+              </span>
+            )}
+            {entry.aspectRatio && (
+              <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">{entry.aspectRatio}</span>
+            )}
+            {clipLengthLabel && (
+              <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">{clipLengthLabel}</span>
+            )}
           </div>
 
-          {clipCount > 0 && (
+          {clipCount > 0 && !isTranscript && (
             <div className="mt-2 flex gap-1 overflow-hidden">
               {entry.clips!.slice(0, 5).map((c, i) => (
                 <div key={i} className="h-12 w-12 shrink-0 overflow-hidden rounded bg-zinc-800">
@@ -292,24 +369,36 @@ function LibraryCard({
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <Link
-              href={viewClipsHref}
+              href={viewHref}
               className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
             >
-              View Clips
+              {isTranscript ? 'View Transcript' : 'View Clips'}
             </Link>
-            <Link
-              href={editHref}
-              className="rounded-lg border border-zinc-600 px-3 py-1.5 text-sm text-zinc-300 hover:border-blue-500 hover:text-white"
-            >
-              Edit
-            </Link>
-            <button
-              type="button"
-              onClick={onDownloadAll}
-              className="rounded-lg border border-zinc-600 px-3 py-1.5 text-sm text-zinc-300 hover:border-blue-500 hover:text-white"
-            >
-              Download All
-            </button>
+            {!isTranscript && (
+              <>
+                <Link
+                  href={editHref}
+                  className="rounded-lg border border-zinc-600 px-3 py-1.5 text-sm text-zinc-300 hover:border-blue-500 hover:text-white"
+                >
+                  Edit
+                </Link>
+                <button
+                  type="button"
+                  onClick={onDownloadAll}
+                  className="rounded-lg border border-zinc-600 px-3 py-1.5 text-sm text-zinc-300 hover:border-blue-500 hover:text-white"
+                >
+                  Download All
+                </button>
+
+                <button
+                  onClick={onDelete}
+                  className="px-4 py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors text-sm"
+                  type="button"
+                >
+                  Delete
+                </button>
+              </>
+            )}
             <div className="relative ml-auto">
               <button
                 type="button"
@@ -342,7 +431,7 @@ function LibraryCard({
                       onClick={() => { onDelete(); setMenuOpen(false) }}
                       className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-zinc-800"
                     >
-                      Delete
+                      🗑️ Delete
                     </button>
                   </div>
                 </>
@@ -396,14 +485,22 @@ function RenameModal({
   )
 }
 
-function DeleteModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+function DeleteModal({
+  title,
+  body,
+  onConfirm,
+  onCancel,
+}: {
+  title: string
+  body: string
+  onConfirm: () => void
+  onCancel: () => void
+}) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="mx-4 max-w-md animate-[fadeIn_0.2s_ease-out] rounded-xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
-        <h3 className="text-lg font-semibold text-white">Delete this project?</h3>
-        <p className="mt-2 text-sm text-zinc-400">
-          This will remove it from your library but won&apos;t delete the actual clip files.
-        </p>
+        <h3 className="text-lg font-semibold text-white">{title}</h3>
+        <p className="mt-2 text-sm text-zinc-400">{body}</p>
         <div className="mt-6 flex justify-end gap-2">
           <button
             type="button"

@@ -15,6 +15,7 @@ export type JobStatus =
 
 export default class Job extends BaseModel {
   static table = 'jobs'
+  static selfAssignPrimaryKey = true
 
   @column({ isPrimary: true })
   declare id: string

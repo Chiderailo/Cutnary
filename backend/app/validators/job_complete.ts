@@ -25,6 +25,7 @@ const clipSchema = vine.object({
   viral_description: vine.string().optional(),
   score: vine.unionOfTypes([vine.number(), vine.string()]).optional(),
   words: vine.array(wordSchema).optional(),
+  thumbnail_url: vine.string().optional(),
 })
 
 export const jobCompleteValidator = vine.compile(
