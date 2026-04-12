@@ -9,6 +9,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 
 from api_utils import call_with_retry, rate_limited_call
+from storage_paths import audio_dir, cache_dir, ensure_storage_dirs
 
 load_dotenv(Path(__file__).parent / ".env")
 
@@ -17,9 +18,6 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
-
-AUDIO_DIR = "../storage/audio"
-CACHE_DIR = os.path.join(os.path.dirname(__file__), "..", "storage", "cache")
 
 
 def get_cache_key(audio_path: str, language: str = "en") -> str:
@@ -37,10 +35,11 @@ def get_openai_client():
 
 
 def extract_audio(video_path, video_id):
+    ensure_storage_dirs()
+    ad = audio_dir()
+    ad.mkdir(parents=True, exist_ok=True)
 
-    os.makedirs(AUDIO_DIR, exist_ok=True)
-
-    audio_path = f"{AUDIO_DIR}/{video_id}.mp3"
+    audio_path = str(ad / f"{video_id}.mp3")
 
     command = [
         "ffmpeg",
@@ -58,9 +57,11 @@ def extract_audio(video_path, video_id):
 
 
 def transcribe_audio(audio_path, language="en"):
-    os.makedirs(CACHE_DIR, exist_ok=True)
+    ensure_storage_dirs()
+    cd = cache_dir()
+    cd.mkdir(parents=True, exist_ok=True)
     cache_key = get_cache_key(audio_path, language)
-    cache_file = os.path.join(CACHE_DIR, f"{cache_key}_transcript.json")
+    cache_file = str(cd / f"{cache_key}_transcript.json")
 
     if os.path.exists(cache_file):
         logger.info("Using cached transcript for %s", os.path.basename(audio_path))

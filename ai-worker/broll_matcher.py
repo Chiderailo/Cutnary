@@ -3,6 +3,9 @@ import os
 import subprocess
 import json
 import time
+from pathlib import Path
+
+from storage_paths import abs_path_for_media
 
 logger = logging.getLogger(__name__)
 DEBUG_LOG_PATH = "c:/Users/iloch/.cursor/projects/cutnary/debug-c6756d.log"
@@ -70,6 +73,9 @@ def detect_silence(video_path):
 
 
 def insert_broll(video_path, broll_video, output):
+    video_path = abs_path_for_media(video_path)
+    output = str(Path(output).resolve())
+    broll_video = abs_path_for_media(broll_video)
 
     if not os.path.exists(broll_video):
         # region agent log
@@ -86,8 +92,10 @@ def insert_broll(video_path, broll_video, output):
     command = [
         "ffmpeg",
         "-y",
-        "-i", video_path,
-        "-i", broll_video,
+        "-i",
+        video_path,
+        "-i",
+        broll_video,
         "-filter_complex",
         "[0:v][1:v]overlay=(W-w)/2:(H-h)/2[vout]",
         "-map", "[vout]",

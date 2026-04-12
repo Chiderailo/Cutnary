@@ -121,8 +121,9 @@ export default function LibraryPage() {
         ? `/editor/${String(entry.id)}?clip=${encodeURIComponent(clipFilename(entry.clips[0].url))}`
         : '#'
 
+  /** Opens dashboard with all clips for this job (same behavior as legacy /?job= on the home page). */
   const viewHref = (entry: LibraryEntry) =>
-    entry.type === 'transcript' ? `/transcript/${entry.id}` : `/?job=${String(entry.id)}#clips`
+    entry.type === 'transcript' ? `/transcript/${entry.id}` : `/dashboard?job=${String(entry.id)}#clips`
 
   return (
     <>
@@ -131,83 +132,107 @@ export default function LibraryPage() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
-      <div className="min-h-screen bg-[#0a0a0b]">
-        <div className="pointer-events-none fixed inset-0">
-          <div className="absolute -left-40 -top-40 h-80 w-80 rounded-full bg-blue-600/10 blur-[120px]" />
-          <div className="absolute -right-40 top-1/3 h-96 w-96 rounded-full bg-blue-500/10 blur-[140px]" />
+      <div className="min-h-screen bg-[#060607] text-zinc-100">
+        <Header />
+        
+        {/* Ambient Glows */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 blur-[120px] rounded-full" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-violet-600/10 blur-[120px] rounded-full" />
         </div>
 
-        <Header />
-
-        <main className="relative z-10 mx-auto max-w-7xl px-4 py-8 sm:px-6">
-          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <h1 className="text-2xl font-bold text-white">My Library</h1>
+        <main className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6">
+          <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">My Library</h1>
+              <p className="mt-3 text-lg text-zinc-400">Access and manage all your AI-generated clips and transcripts.</p>
+            </div>
+            
             <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={() => setPostCampaignOpen(true)}
-                className="flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-2.5 font-medium text-white shadow-lg transition-all hover:bg-violet-500"
+                className="flex items-center gap-2 rounded-2xl bg-violet-600 px-6 py-3 font-bold text-white shadow-lg shadow-violet-600/20 transition-all hover:bg-violet-500 hover:scale-105 active:scale-95"
               >
-                <span>📤</span>
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
                 Post Clips
               </button>
+            </div>
+          </div>
+
+          <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-zinc-800/50 bg-zinc-900/40 p-4 backdrop-blur-md sm:flex-row sm:items-center">
+            <div className="relative flex-1">
               <input
                 type="search"
-                placeholder="Search by title or date…"
+                placeholder="Search projects..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none sm:w-64"
+                className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-12 py-3 text-sm text-white placeholder-zinc-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all"
               />
+              <svg className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            
+            <div className="flex items-center gap-3">
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as typeof sort)}
-                className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
+                className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm font-medium text-zinc-300 focus:border-violet-500 focus:outline-none"
               >
                 <option value="newest">Newest first</option>
                 <option value="oldest">Oldest first</option>
                 <option value="most_clips">Most clips</option>
               </select>
-              <div className="flex rounded-lg border border-zinc-700 bg-zinc-900 p-1">
+              
+              <div className="flex rounded-2xl border border-zinc-800 bg-zinc-900 p-1">
                 <button
                   type="button"
                   onClick={() => setViewMode('grid')}
-                  className={`rounded px-3 py-1.5 text-sm ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'text-zinc-400'}`}
-                  aria-label="Grid view"
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all ${viewMode === 'grid' ? 'bg-zinc-800 text-white shadow-inner' : 'text-zinc-500 hover:text-zinc-300'}`}
                 >
-                  ⊞
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                  </svg>
                 </button>
                 <button
                   type="button"
                   onClick={() => setViewMode('list')}
-                  className={`rounded px-3 py-1.5 text-sm ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'text-zinc-400'}`}
-                  aria-label="List view"
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all ${viewMode === 'list' ? 'bg-zinc-800 text-white shadow-inner' : 'text-zinc-500 hover:text-zinc-300'}`}
                 >
-                  ☰
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
                 </button>
               </div>
             </div>
           </div>
 
           {entries.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900/60 py-24 text-center">
-              <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-zinc-800">
-                <svg className="h-10 w-10 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
+            <div className="flex flex-col items-center justify-center rounded-[32px] border border-zinc-800 bg-zinc-900/40 py-32 text-center backdrop-blur-md">
+              <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-violet-600/10 text-4xl">
+                🎬
               </div>
-              <p className="mb-2 text-lg font-medium text-white">No videos yet</p>
-              <p className="mb-6 text-zinc-500">Start by pasting a YouTube link!</p>
+              <h2 className="text-2xl font-bold text-white">Your library is empty</h2>
+              <p className="mt-2 text-zinc-500 max-w-sm">
+                Paste a YouTube link on the dashboard to start generating viral clips with AI.
+              </p>
               <Link
-                href="/"
-                className="rounded-xl bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-500"
+                href="/dashboard"
+                className="mt-8 rounded-2xl bg-white px-8 py-3.5 font-bold text-black transition-all hover:bg-zinc-200 active:scale-95"
               >
                 Create your first clip
               </Link>
             </div>
           ) : sorted.length === 0 ? (
-            <p className="py-12 text-center text-zinc-500">No matches for your search.</p>
+            <div className="py-24 text-center">
+              <p className="text-xl text-zinc-500">No projects match your search.</p>
+              <button onClick={() => setSearch('')} className="mt-4 text-violet-400 hover:underline font-medium">Clear search</button>
+            </div>
           ) : (
             <div
-              className={`grid gap-6 transition-opacity duration-300 ${
+              className={`grid gap-6 transition-all duration-500 ${
                 viewMode === 'grid'
                   ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
                   : 'grid-cols-1'
@@ -224,7 +249,9 @@ export default function LibraryPage() {
                   onShare={() => {
                     const base = typeof window !== 'undefined' ? window.location.origin : ''
                     navigator.clipboard.writeText(
-                      entry.type === 'transcript' ? `${base}/transcript/${entry.id}` : `${base}/?job=${String(entry.id)}`
+                      entry.type === 'transcript'
+                        ? `${base}/transcript/${entry.id}`
+                        : `${base}/dashboard?job=${String(entry.id)}#clips`
                     )
                   }}
                   onDownloadAll={() => handleDownloadAll(entry)}
@@ -307,136 +334,152 @@ function LibraryCard({
 
   return (
     <div
-      className="group animate-[fadeIn_0.4s_ease-out_forwards] rounded-xl border border-zinc-800 bg-zinc-900 transition-all duration-300 hover:scale-[1.02] hover:border-blue-500/30 hover:shadow-lg hover:shadow-blue-500/10"
+      className="group relative animate-[fadeIn_0.5s_ease-out_forwards] overflow-hidden rounded-[32px] border border-zinc-800 bg-zinc-900/40 transition-all duration-300 hover:border-violet-500/50 hover:shadow-2xl hover:shadow-violet-500/10 backdrop-blur-md"
       style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'forwards', opacity: 0 }}
     >
-      <div className={`flex overflow-hidden rounded-xl ${viewMode === 'list' ? 'flex-row' : 'flex-col'}`}>
-        <div className={`relative overflow-hidden bg-zinc-800 ${viewMode === 'list' ? 'h-24 w-40 shrink-0' : 'aspect-video'}`}>
+      <div className={`flex flex-col h-full ${viewMode === 'list' ? 'sm:flex-row' : ''}`}>
+        <div className={`relative overflow-hidden bg-zinc-800 transition-transform duration-500 group-hover:scale-[1.02] ${viewMode === 'list' ? 'sm:h-auto sm:w-64 shrink-0' : 'aspect-video'}`}>
           {entry.thumbnail ? (
             <img
               src={entry.thumbnail}
               alt=""
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center">
-              <svg className="h-12 w-12 text-zinc-600" fill="currentColor" viewBox="0 0 24 24">
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-900">
+              <svg className="h-12 w-12 text-zinc-700" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>
             </div>
           )}
-          <div className={`absolute left-2 top-2 flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium text-white ${typeBadge.bg}`}>
-            {typeBadge.spin && <span className="inline-block h-2 w-2 animate-spin rounded-full border-2 border-white border-t-transparent" />}
-            {typeBadge.label}
-            {!isTranscript && clipCount > 0 && <span>· {clipCount} clips</span>}
-            {isTranscript && entry.speakerCount != null && entry.speakerCount > 0 && (
-              <span>· {entry.speakerCount} speakers</span>
+          
+          <div className="absolute left-3 top-3 flex flex-col gap-2">
+            <div className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg backdrop-blur-md ${typeBadge.bg}`}>
+              {typeBadge.spin && <span className="inline-block h-2 w-2 animate-spin rounded-full border border-white border-t-transparent" />}
+              {typeBadge.label}
+            </div>
+            {entry.status === 'completed' && !isTranscript && (
+              <div className="flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg backdrop-blur-md">
+                🔥 {clipCount} clips
+              </div>
             )}
           </div>
-          <div className={`absolute right-2 top-2 flex items-center gap-1.5 rounded px-2 py-0.5 text-xs ${sc.dot === 'bg-blue-500' ? 'bg-blue-500/90' : sc.dot === 'bg-red-500' ? 'bg-red-500/90' : sc.dot === 'bg-amber-500' ? 'bg-amber-500/90' : 'bg-blue-400/90'} text-white`}>
-            {sc.spin && <span className="inline-block h-2 w-2 animate-spin rounded-full border-2 border-white border-t-transparent" />}
-            {!sc.spin && <span className="h-2 w-2 rounded-full bg-white" />}
-            {sc.label}
+
+          <div className="absolute right-3 top-3">
+             <div className={`flex items-center justify-center h-6 w-6 rounded-full shadow-lg backdrop-blur-md ${sc.dot} border-2 border-white/20`}>
+                {sc.spin && <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+             </div>
+          </div>
+
+          {/* Overlay Play Button on Hover */}
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+             <Link href={viewHref} className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-black shadow-xl transition-transform duration-300 hover:scale-110">
+                <svg className="h-6 w-6 translate-x-0.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+             </Link>
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col p-4">
-          <h3 className="truncate font-semibold text-white">{entry.videoTitle}</h3>
-          <p className="mt-0.5 text-sm text-zinc-500">{formatRelativeTime(entry.createdAt)}</p>
-          <div className="mt-2 flex flex-wrap gap-1">
+        <div className="flex flex-1 flex-col p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h3 className="truncate text-lg font-bold text-white group-hover:text-violet-400 transition-colors">{entry.videoTitle}</h3>
+              <p className="mt-1 text-xs font-medium text-zinc-500 uppercase tracking-widest">{formatRelativeTime(entry.createdAt)}</p>
+            </div>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setMenuOpen((o) => !o)}
+                className="flex h-8 w-8 items-center justify-center rounded-xl text-zinc-500 transition-all hover:bg-zinc-800 hover:text-white"
+                aria-label="More"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                </svg>
+              </button>
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} aria-hidden />
+                  <div className="absolute right-0 top-full z-20 mt-2 min-w-[180px] overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 p-1 shadow-2xl backdrop-blur-xl">
+                    <button
+                      type="button"
+                      onClick={() => { onRename(); setMenuOpen(false) }}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
+                    >
+                      <span>✏️</span> Rename
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { onShare(); setMenuOpen(false) }}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
+                    >
+                      <span>🔗</span> Copy Link
+                    </button>
+                    <div className="my-1 border-t border-zinc-800" />
+                    <button
+                      type="button"
+                      onClick={() => { onDelete(); setMenuOpen(false) }}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10"
+                    >
+                      <span>🗑️</span> Delete Project
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
             {entry.language && (
-              <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
+              <span className="rounded-lg bg-zinc-800/50 px-2.5 py-1 text-[10px] font-bold text-zinc-400 border border-zinc-700/30">
                 {LANGUAGE_LABELS[entry.language] ?? entry.language.toUpperCase()}
               </span>
             )}
             {entry.aspectRatio && (
-              <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">{entry.aspectRatio}</span>
+              <span className="rounded-lg bg-zinc-800/50 px-2.5 py-1 text-[10px] font-bold text-zinc-400 border border-zinc-700/30">{entry.aspectRatio}</span>
             )}
             {clipLengthLabel && (
-              <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">{clipLengthLabel}</span>
+              <span className="rounded-lg bg-zinc-800/50 px-2.5 py-1 text-[10px] font-bold text-zinc-400 border border-zinc-700/30">{clipLengthLabel}</span>
             )}
           </div>
 
-          {clipCount > 0 && !isTranscript && (
-            <div className="mt-2 flex gap-1 overflow-hidden">
-              {entry.clips!.slice(0, 5).map((c, i) => (
-                <div key={i} className="h-12 w-12 shrink-0 overflow-hidden rounded bg-zinc-800">
-                  <video src={c.url} muted className="h-full w-full object-cover" preload="metadata" />
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="mt-4 flex flex-wrap items-center gap-2">
+          <div className="mt-auto pt-6 flex flex-wrap items-center gap-3">
             <Link
               href={viewHref}
-              className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
+              className="flex-1 rounded-xl bg-violet-600 px-4 py-2 text-center text-sm font-bold text-white transition-all hover:bg-violet-500 active:scale-95"
             >
-              {isTranscript ? 'View Transcript' : 'View Clips'}
+              {isTranscript ? 'Transcript' : 'View Clips'}
             </Link>
-            {!isTranscript && (
+            {!isTranscript && entry.status === 'completed' && (
               <>
                 <Link
                   href={editHref}
-                  className="rounded-lg border border-zinc-600 px-3 py-1.5 text-sm text-zinc-300 hover:border-blue-500 hover:text-white"
+                  className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-bold text-zinc-300 transition-all hover:border-violet-500 hover:text-white"
+                  title="Edit Clips"
                 >
                   Edit
                 </Link>
                 <button
                   type="button"
                   onClick={onDownloadAll}
-                  className="rounded-lg border border-zinc-600 px-3 py-1.5 text-sm text-zinc-300 hover:border-blue-500 hover:text-white"
+                  className="rounded-xl border border-zinc-700 p-2 text-zinc-400 transition-all hover:border-violet-500 hover:text-white"
+                  title="Download All"
                 >
-                  Download All
-                </button>
-
-                <button
-                  onClick={onDelete}
-                  className="px-4 py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors text-sm"
-                  type="button"
-                >
-                  Delete
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
                 </button>
               </>
             )}
-            <div className="relative ml-auto">
-              <button
-                type="button"
-                onClick={() => setMenuOpen((o) => !o)}
-                className="rounded p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-white"
-                aria-label="More"
-              >
-                ⋮
-              </button>
-              {menuOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} aria-hidden />
-                  <div className="absolute right-0 top-full z-20 mt-1 min-w-[140px] rounded-lg border border-zinc-700 bg-zinc-900 py-1 shadow-xl">
-                    <button
-                      type="button"
-                      onClick={() => { onRename(); setMenuOpen(false) }}
-                      className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800"
-                    >
-                      Rename
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { onShare(); setMenuOpen(false) }}
-                      className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800"
-                    >
-                      Share
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { onDelete(); setMenuOpen(false) }}
-                      className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-zinc-800"
-                    >
-                      🗑️ Delete
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+            {entry.status === 'failed' && (
+               <button
+                  onClick={onDelete}
+                  className="flex-1 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-bold text-red-400 transition-all hover:bg-red-500/20"
+               >
+                  Retry / Delete
+               </button>
+            )}
           </div>
         </div>
       </div>

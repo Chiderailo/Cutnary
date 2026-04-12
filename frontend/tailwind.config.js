@@ -11,6 +11,7 @@ module.exports = {
         'pulse-slow': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         glow: 'glow 2s ease-in-out infinite alternate',
         'dropdown-fade': 'dropdown-fade 0.2s ease-out',
+        'marquee': 'marquee 30s linear infinite',
       },
       keyframes: {
         glow: {
@@ -20,6 +21,10 @@ module.exports = {
         'dropdown-fade': {
           '0%': { opacity: '0', transform: 'translateY(-4px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'marquee': {
+          '0%': { transform: 'translateX(0%)' },
+          '100%': { transform: 'translateX(-50%)' },
         },
       },
       backdropBlur: {

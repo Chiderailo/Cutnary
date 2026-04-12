@@ -50,4 +50,21 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   // AI (Gemini for hashtags, etc.)
   GOOGLE_API_KEY: Env.schema.string.optional(),
+
+  // Transactional email (SMTP) — set for production email verification
+  SMTP_HOST: Env.schema.string.optional(),
+  SMTP_PORT: Env.schema.number.optional(),
+  SMTP_SECURE: Env.schema.boolean.optional(),
+  SMTP_USER: Env.schema.string.optional(),
+  SMTP_PASSWORD: Env.schema.string.optional(),
+  MAIL_FROM_ADDRESS: Env.schema.string.optional(),
+  MAIL_FROM_NAME: Env.schema.string.optional(),
+  /** When false, skip mandatory verification even if SMTP is configured (not recommended for production). */
+  REQUIRE_EMAIL_VERIFICATION: Env.schema.boolean.optional(),
+
+  // Google Sign-In (OAuth 2.0) — separate from GOOGLE_API_KEY (Gemini)
+  GOOGLE_CLIENT_ID: Env.schema.string.optional(),
+  GOOGLE_CLIENT_SECRET: Env.schema.string.optional(),
+  /** Optional; default is ${APP_URL}/api/auth/google/callback */
+  GOOGLE_REDIRECT_URI: Env.schema.string.optional(),
 })

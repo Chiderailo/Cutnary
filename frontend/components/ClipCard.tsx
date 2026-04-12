@@ -59,10 +59,10 @@ function formatDuration(start?: number, end?: number): string {
   return m > 0 ? `${m}:${s.toString().padStart(2, '0')}` : `${s}s`
 }
 
-function scoreBadge(score: number): { emoji: string; className: string } {
-  if (score > 70) return { emoji: '🔥', className: 'bg-blue-500/95 text-white' }
-  if (score >= 40) return { emoji: '⚡', className: 'bg-blue-400/90 text-white' }
-  return { emoji: '📉', className: 'bg-zinc-600/95 text-zinc-300' }
+function scoreTier(score: number): { emoji: string; gradient: string } {
+  if (score > 70) return { emoji: '🔥', gradient: 'from-violet-500 to-fuchsia-400' }
+  if (score >= 40) return { emoji: '⚡', gradient: 'from-violet-600 to-indigo-500' }
+  return { emoji: '📉', gradient: 'from-zinc-600 to-zinc-500' }
 }
 
 function clipFilename(url: string): string {
@@ -97,7 +97,7 @@ export default function ClipCard({
     scoreValue = 0
   }
   const hasScore = scoreProp != null || clip.score != null
-  const badge = hasScore ? scoreBadge(scoreValue) : null
+  const scoreDisplay = hasScore ? scoreTier(scoreValue) : null
 
   const [modalOpen, setModalOpen] = useState(false)
   const [explainerStyle, setExplainerStyle] = useState('commentary')
@@ -203,9 +203,9 @@ export default function ClipCard({
   return (
     <>
       <div
-        className="group relative overflow-hidden rounded-xl border border-zinc-700/50 bg-zinc-900/60 
-                   backdrop-blur-sm transition-all duration-300 hover:border-blue-500/30
-                   hover:shadow-lg hover:shadow-blue-500/10"
+        className="group relative overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/40 
+                   ring-1 ring-white/[0.04] backdrop-blur-sm transition-all duration-300 hover:border-violet-500/25
+                   hover:shadow-lg hover:shadow-violet-950/20"
       >
         <div className="relative aspect-video w-full bg-zinc-900">
           <video
@@ -233,67 +233,77 @@ export default function ClipCard({
             </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-2">
-            {jobIdStr && (
-              <Link
-                href={`/editor/${jobIdStr}?clip=${encodeURIComponent(clipFilename(clip.url))}`}
-                className="flex items-center gap-2 rounded-lg border border-zinc-600 bg-zinc-800/80 
-                           px-4 py-2 text-sm font-medium text-white transition-all duration-200 
-                           hover:border-blue-500/50 hover:bg-zinc-700"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                  />
-                </svg>
-                Edit
-              </Link>
+          <div className="space-y-2">
+            {(jobIdStr || (canRemove && typeof clipIndex === 'number' && onRemoveClip)) && (
+              <div className="flex gap-2">
+                {jobIdStr && (
+                  <Link
+                    href={`/editor/${jobIdStr}?clip=${encodeURIComponent(clipFilename(clip.url))}`}
+                    className="flex min-h-[42px] flex-1 items-center justify-center gap-2 rounded-xl border border-zinc-700/90 
+                               bg-zinc-900/60 px-3 py-2 text-sm font-medium text-zinc-100 ring-1 ring-white/[0.04]
+                               transition-all duration-200 hover:border-violet-500/35 hover:bg-zinc-800/80"
+                  >
+                    <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                      />
+                    </svg>
+                    Edit
+                  </Link>
+                )}
+                {canRemove && typeof clipIndex === 'number' && onRemoveClip && (
+                  <button
+                    onClick={() => {
+                      if (!window.confirm('Remove this clip from your library?')) return
+                      onRemoveClip(clipIndex)
+                    }}
+                    className="flex min-h-[42px] flex-1 items-center justify-center gap-2 rounded-xl border border-red-500/40 
+                               bg-zinc-900/40 px-3 py-2 text-sm font-medium text-red-300/95 transition-all duration-200 
+                               hover:border-red-400/60 hover:bg-red-950/30"
+                    type="button"
+                  >
+                    <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-3h4m-4 0a1 1 0 00-1 1v0a1 1 0 001 1h4a1 1 0 001-1v0a1 1 0 00-1-1m-5 4v10m4-10v10" />
+                    </svg>
+                    Remove
+                  </button>
+                )}
+              </div>
             )}
-            {canRemove && typeof clipIndex === 'number' && onRemoveClip && (
+            <div className="grid grid-cols-2 gap-2">
               <button
-                onClick={() => {
-                  if (!window.confirm('Remove this clip from your library?')) return
-                  onRemoveClip(clipIndex)
-                }}
-                className="flex items-center gap-2 rounded-lg border border-red-600 bg-zinc-800/80 
-                           px-4 py-2 text-sm font-medium text-red-300 transition-all duration-200 
-                           hover:border-red-500 hover:bg-zinc-700"
                 type="button"
+                onClick={() => setModalOpen(true)}
+                className="flex min-h-[42px] items-center justify-center gap-2 rounded-xl border border-zinc-700/90 
+                           bg-zinc-900/60 px-3 py-2 text-sm font-medium text-zinc-100 ring-1 ring-white/[0.04]
+                           transition-all duration-200 hover:border-violet-500/35 hover:bg-zinc-800/80"
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-3h4m-4 0a1 1 0 00-1 1v0a1 1 0 001 1h4a1 1 0 001-1v0a1 1 0 00-1-1m-5 4v10m4-10v10" />
-                </svg>
-                Remove
+                <span className="shrink-0" aria-hidden>🎙️</span>
+                Add AI Voice
               </button>
-            )}
+              <button
+                type="button"
+                onClick={() => setPostModalOpen(true)}
+                aria-label="Share clip to social"
+                className="flex min-h-[42px] items-center justify-center gap-2 rounded-xl border border-zinc-700/90 
+                           bg-zinc-900/60 px-3 py-2 text-sm font-medium text-zinc-100 ring-1 ring-white/[0.04]
+                           transition-all duration-200 hover:border-violet-500/35 hover:bg-zinc-800/80"
+              >
+                <span className="shrink-0" aria-hidden>📤</span>
+                Share
+              </button>
+            </div>
             <button
-              onClick={() => setModalOpen(true)}
-              className="flex items-center gap-2 rounded-lg border border-zinc-600 bg-zinc-800/80 
-                         px-4 py-2 text-sm font-medium text-white transition-all duration-200 
-                         hover:border-blue-500/50 hover:bg-zinc-700"
-            >
-              <span>🎙️</span>
-              Add AI Voice
-            </button>
-            <button
-              onClick={() => setPostModalOpen(true)}
-              className="flex items-center gap-2 rounded-lg border border-zinc-600 bg-zinc-800/80 
-                         px-4 py-2 text-sm font-medium text-white transition-all duration-200 
-                         hover:border-blue-500/50 hover:bg-zinc-700"
-            >
-              <span>📤</span>
-              Post
-            </button>
-            <button
+              type="button"
               onClick={handleDownload}
-              className="flex items-center gap-2 rounded-lg bg-blue-600 
-                         px-4 py-2 text-sm font-medium text-white shadow-lg transition-all duration-200 
-                         hover:bg-blue-500 hover:shadow-blue-500/25 active:scale-[0.98]"
+              className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 
+                         text-sm font-semibold text-white shadow-lg shadow-violet-600/20 transition-all duration-200 
+                         hover:bg-violet-500 hover:shadow-violet-500/25 active:scale-[0.99]"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -305,12 +315,33 @@ export default function ClipCard({
             </button>
           </div>
 
-          {badge && (
-            <p
-              className={`mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${badge.className}`}
+          {scoreDisplay && (
+            <div
+              className="mt-4 rounded-xl border border-zinc-800/90 bg-black/25 px-3 py-3 ring-1 ring-white/[0.04]"
+              role="group"
+              aria-label={`Viral score ${scoreValue} out of 100`}
             >
-              {badge.emoji} {scoreValue}/100
-            </p>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                  Viral score
+                </span>
+                <span className="flex items-center gap-1.5 tabular-nums">
+                  <span className="text-base" aria-hidden>
+                    {scoreDisplay.emoji}
+                  </span>
+                  <span className="text-sm font-semibold text-zinc-100">
+                    {scoreValue}
+                    <span className="font-medium text-zinc-500">/100</span>
+                  </span>
+                </span>
+              </div>
+              <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-zinc-800/90 ring-1 ring-inset ring-white/[0.06]">
+                <div
+                  className={`h-full rounded-full bg-gradient-to-r ${scoreDisplay.gradient}`}
+                  style={{ width: `${Math.min(100, Math.max(0, scoreValue))}%` }}
+                />
+              </div>
+            </div>
           )}
         </div>
       </div>

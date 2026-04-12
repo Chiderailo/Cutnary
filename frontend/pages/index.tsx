@@ -12,6 +12,7 @@ import ClipCard, { type ClipData } from '@/components/ClipCard'
 import { apiFetch, apiJson, parseResponseJson } from '@/lib/api'
 import { addToLibrary, getLibrary, getYouTubeThumbnail, getYouTubeVideoId, removeClipFromLibrary, updateLibraryEntry } from '@/lib/library'
 import { useAuth } from '@/context/AuthContext'
+import { CLIP_DASHBOARD_SECTION_ID } from '@/lib/clip_dashboard'
 const POLL_INTERVAL_MS = 3000
 
 const YOUTUBE_OEMBED = 'https://www.youtube.com/oembed'
@@ -106,7 +107,7 @@ const CLIP_LENGTH_MAP: Record<string, string> = {
 
 export default function Home() {
   const router = useRouter()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isLoading } = useAuth()
   const [step, setStep] = useState<FlowStep>(1)
   const [videoUrl, setVideoUrl] = useState('')
   const [videoPreview, setVideoPreview] = useState<YouTubeOEmbed | null>(null)
@@ -130,8 +131,36 @@ export default function Home() {
   const [speakerSeparation, setSpeakerSeparation] = useState(true)
   const [transcriptError, setTranscriptError] = useState<string | null>(null)
   const [transcriptSubmitting, setTranscriptSubmitting] = useState(false)
+  const [openFaq, setOpenFaq] = useState<number | null>(null)
+
+  const FAQS = [
+    {
+      question: 'How does Cutnary work?',
+      answer: 'Cutnary uses AI to analyze your long-form videos, identifying the most engaging moments to create short-form clips optimized for social media.'
+    },
+    {
+      question: 'What types of videos can I upload?',
+      answer: 'Currently we support YouTube links for talking videos, podcasts, and educational content. We are working on direct file uploads.'
+    },
+    {
+      question: 'Which languages are supported?',
+      answer: 'We support over 20+ languages including English, Spanish, French, German, and more.'
+    },
+    {
+      question: 'Can I add captions?',
+      answer: 'Yes! Cutnary automatically generates and adds stylish, high-accuracy captions to all your clips.'
+    },
+    {
+      question: 'Is Cutnary free to use?',
+      answer: 'We offer a free tier to get you started with several minutes of processing time each month.'
+    },
+    {
+      question: 'I have more questions!',
+      answer: 'Feel free to reach out to our support team or check our learning center for more detailed guides.'
+    }
+  ]
+
   const previewRef = useRef<HTMLElement | null>(null)
-  const prefsLoaded = useRef(false)
   const jobIdRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -139,19 +168,9 @@ export default function Home() {
   }, [jobId])
 
   useEffect(() => {
-    if (!isAuthenticated || prefsLoaded.current) return
-    prefsLoaded.current = true
-    apiJson<{ success: boolean; preferences?: { default_aspect_ratio: string; default_clip_length: string; default_language: string } }>('/api/user/preferences')
-      .then((data) => {
-        if (data.success && data.preferences) {
-          const p = data.preferences
-          setAspectRatio(p.default_aspect_ratio)
-          setClipLength(CLIP_LENGTH_MAP[p.default_clip_length] ?? p.default_clip_length)
-          setTranscriptLanguage(p.default_language)
-        }
-      })
-      .catch(() => {})
-  }, [isAuthenticated])
+    if (!router.isReady || isLoading) return
+    if (isAuthenticated) void router.replace('/dashboard')
+  }, [router.isReady, isLoading, isAuthenticated, router])
 
   const LANGUAGES = [
     { value: 'en', label: 'English' },
@@ -530,6 +549,30 @@ export default function Home() {
   const progressInfo = status ? PROGRESS_MAP[status] ?? PROGRESS_MAP.queued : PROGRESS_MAP.queued
   const progressPercent = status === 'failed' ? 100 : progressInfo.percent
 
+  if (!router.isReady || isLoading) {
+    return (
+      <>
+        <Head>
+          <title>Cutnary – AI Video Clipper</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+        </Head>
+        <div className="min-h-screen bg-[#0a0a0b]" />
+      </>
+    )
+  }
+
+  if (isAuthenticated) {
+    return (
+      <>
+        <Head>
+          <title>Cutnary – AI Video Clipper</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+        </Head>
+        <div className="min-h-screen bg-[#0a0a0b]" />
+      </>
+    )
+  }
+
   return (
     <>
       <Head>
@@ -549,39 +592,38 @@ export default function Home() {
 
         <Header />
 
-        <main className="relative mx-auto max-w-4xl px-6 py-16 sm:px-8 lg:py-24">
-          {/* Hero – sticky URL input */}
-          <section className="sticky top-16 z-10 mb-16 lg:mb-20">
-            <div className="lg:grid lg:grid-cols-[1fr_1.2fr] lg:gap-16 lg:items-start">
-              <div className="mb-10 lg:mb-0 lg:pt-4">
-                <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
-                  Turn long videos
+        <main className="relative mx-auto max-w-7xl px-6 py-16 sm:px-8 lg:py-24">
+          {/* Hero — primary clip / URL upload dashboard */}
+          <section id={CLIP_DASHBOARD_SECTION_ID} className="mb-24 scroll-mt-24 lg:mb-32">
+            <div className="lg:grid lg:grid-cols-2 lg:gap-12 lg:items-center">
+              <div className="mb-12 lg:mb-0">
+                <div className="mb-6 inline-flex items-center rounded-full bg-zinc-900 px-3 py-1 text-sm font-medium text-[#22c55e]">
+                  #1 AI VIDEO CLIPPING TOOL
+                </div>
+                <h1 className="text-5xl font-extrabold tracking-tight text-white sm:text-6xl lg:text-7xl">
+                  1 long video,
                   <br />
-                  <span className="bg-gradient-to-r from-blue-400 to-sky-400 bg-clip-text text-transparent">
-                    into viral clips
-                  </span>
+                  10 viral clips.
+                  <br />
+                  Create 10x faster.
                 </h1>
-                <p className="mt-6 max-w-sm text-lg text-zinc-500">
-                  Paste a YouTube link. Configure once. Get shareable clips in minutes.
+                <p className="mt-8 max-w-xl text-lg text-zinc-400">
+                  Cutnary is a generative AI video tool that repurposes long talking videos into shorts <span className="text-white font-medium">in one click</span>. Powered by OpenAI.
                 </p>
-              </div>
-
-              <div>
-                <form onSubmit={handleUrlSubmit}>
-                  <div
-                    className={`relative rounded-2xl border bg-zinc-900/60 py-4 pl-5 pr-4 
-                      transition-all duration-300 ${
-                      urlInputFocused
-                        ? 'border-blue-500/60 shadow-[0_0_0_1px_rgba(59,130,246,0.3),0_0_40px_rgba(59,130,246,0.15)]'
-                        : 'border-zinc-800 hover:border-zinc-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-800">
-                        <svg className="h-5 w-5 text-red-500" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                        </svg>
-                      </div>
+                
+                <form onSubmit={handleUrlSubmit} className="mt-10">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div
+                      className={`relative flex min-w-[300px] flex-1 items-center rounded-xl border bg-zinc-900/60 py-3 pl-4 pr-3 
+                        transition-all duration-300 ${
+                        urlInputFocused
+                          ? 'border-[#6112ff]/60 shadow-[0_0_0_1px_rgba(97,18,255,0.3)]'
+                          : 'border-zinc-800'
+                      }`}
+                    >
+                      <svg className="mr-3 h-5 w-5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.828a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
                       <input
                         type="url"
                         value={videoUrl}
@@ -591,51 +633,62 @@ export default function Home() {
                         }}
                         onFocus={() => setUrlInputFocused(true)}
                         onBlur={() => setUrlInputFocused(false)}
-                        placeholder="https://youtube.com/watch?v=..."
+                        placeholder="Drop a video link"
                         disabled={previewLoading}
-                        className="min-w-0 flex-1 bg-transparent text-white placeholder-zinc-600 
-                          outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                        className="min-w-0 flex-1 bg-transparent text-white placeholder-zinc-600 outline-none"
                       />
-                      {videoUrl && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setVideoUrl('')
-                            setVideoPreview(null)
-                            setPreviewError(null)
-                            setStep(1)
-                          }}
-                          className="shrink-0 rounded-lg p-2 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-white"
-                          aria-label="Clear"
-                        >
-                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      )}
                       <button
                         type="submit"
-                        disabled={previewLoading}
-                        className={`shrink-0 rounded-xl bg-blue-600 px-5 py-2.5 font-medium text-white
-                          transition-all hover:bg-blue-500 disabled:opacity-50
-                          ${videoUrl.trim() ? 'animate-[pulse-subtle_2s_ease-in-out_infinite]' : ''}`}
+                        disabled={previewLoading || !videoUrl.trim()}
+                        className="ml-2 rounded-lg bg-[#6112ff] px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-[#7226ff] disabled:opacity-50"
                       >
-                        {previewLoading ? 'Loading…' : 'Continue'}
+                        {previewLoading ? '...' : 'Get free clips'}
                       </button>
                     </div>
+                    <span className="text-zinc-500">or</span>
+                    <button
+                      type="button"
+                      className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-zinc-800"
+                    >
+                      Upload file
+                    </button>
                   </div>
-                  <p className="mt-2 text-sm text-zinc-500">
-                    YouTube links only for now
-                  </p>
                   {previewError && (
-                    <p className="mt-2 text-sm text-red-400">{previewError}</p>
+                    <p className="mt-3 text-sm text-red-400">{previewError}</p>
                   )}
                 </form>
+              </div>
+
+              {/* Visual side */}
+              <div className="relative hidden lg:block">
+                <div className="absolute inset-0 flex items-center justify-center">
+                   <div className="grid grid-cols-4 gap-4 opacity-50">
+                     {[...Array(12)].map((_, i) => (
+                       <div key={i} className={`h-16 w-16 rounded-2xl ${['bg-pink-500', 'bg-violet-600', 'bg-blue-500', 'bg-white'][i % 4]}`} />
+                     ))}
+                   </div>
+                </div>
+                <div className="relative z-10 rounded-[32px] border border-zinc-800 bg-zinc-950 p-8 shadow-2xl">
+                  <div className="mb-6 text-center text-2xl font-bold text-white">Brand Templates</div>
+                  <div className="grid grid-cols-3 gap-4">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="relative aspect-[9/16] overflow-hidden rounded-2xl bg-zinc-900">
+                        <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/60" />
+                        <div className="absolute inset-x-2 top-2 rounded-md bg-cyan-400/90 py-1 text-center text-[8px] font-bold uppercase text-black">
+                          AI TOOLS FOR CREATORS
+                        </div>
+                        <div className="absolute inset-x-2 bottom-4 text-center text-[10px] font-bold text-white uppercase">
+                          IT HELPS ME
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </section>
 
-          {/* Video preview – visible when we have a video and tools/settings/progress */}
+          {/* Original functionality below */}
           {(showToolsGrid || showSettings || showTranscriptSettings || showTranscriptProgress || showProgress) && videoPreview && (
             <section
               ref={previewRef}
@@ -661,6 +714,284 @@ export default function Home() {
                 </div>
               </div>
             </section>
+          )}
+
+          {/* New Sections */}
+          {!videoPreview && (
+            <>
+              {/* Trust Section */}
+              <section className="mb-24 lg:mb-32">
+                <div className="text-center">
+                  <p className="mb-12 text-zinc-500 font-medium">Used by 16M+ creators and businesses</p>
+                  
+                  {/* Creators Row */}
+                  <div className="flex flex-wrap justify-center gap-x-12 gap-y-10 mb-20 px-4">
+                    {[
+                      { name: 'TwoSetViolin', count: '4.3M', platform: 'youtube', img: 'https://api.dicebear.com/7.x/avataaars/svg?seed=TwoSet' },
+                      { name: 'Jon Youshaei', count: '435K', platform: 'youtube', img: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jon' },
+                      { name: 'Armchair Historian', count: '2.2M', platform: 'youtube', img: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Armchair' },
+                      { name: 'SaaStr', count: '54.4K', platform: 'linkedin', img: 'https://api.dicebear.com/7.x/avataaars/svg?seed=SaaStr' },
+                      { name: 'Sebastien Jefferies', count: '422K', platform: 'tiktok', img: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Seb' },
+                      { name: 'FLAGRANT', count: '1.5M', platform: 'youtube', img: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Flagrant' },
+                      { name: 'Mai Pham', count: '3.3M', platform: 'youtube', img: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mai' },
+                      { name: 'Valuetainment', count: '5.3M', platform: 'youtube', img: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Value' },
+                    ].map((creator) => (
+                      <div key={creator.name} className="flex flex-col items-center group">
+                        <div className="relative mb-3 h-16 w-16">
+                          <div className="h-full w-full overflow-hidden rounded-full border-2 border-zinc-800 transition-colors group-hover:border-zinc-700">
+                            <img src={creator.img} alt={creator.name} className="h-full w-full object-cover" />
+                          </div>
+                          <div className="absolute bottom-0 right-0 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#0a0a0b] bg-zinc-900 p-1">
+                            {creator.platform === 'youtube' && (
+                              <svg className="h-full w-full text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                              </svg>
+                            )}
+                            {creator.platform === 'linkedin' && (
+                              <svg className="h-full w-full text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
+                              </svg>
+                            )}
+                            {creator.platform === 'tiktok' && (
+                              <svg className="h-full w-full text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.9-.32-1.98-.23-2.81.33-.85.51-1.44 1.43-1.58 2.42-.14 1.01.23 2.08.94 2.82.71.74 1.76 1.13 2.8 1.01 1.05-.06 2.01-.66 2.58-1.53.33-.51.48-1.11.49-1.72.01-4.02-.01-8.03.02-12.05z" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-sm font-bold text-white mb-0.5">{creator.name}</span>
+                        <span className="text-xs text-zinc-500">{creator.count}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Company Logos Row - Marquee */}
+                  <div className="relative overflow-hidden py-10">
+                    <div className="flex w-[200%] animate-marquee items-center justify-around gap-x-12 opacity-70 grayscale hover:grayscale-0 transition-all duration-500">
+                      {[...Array(2)].map((_, i) => (
+                        <div key={i} className="flex min-w-full shrink-0 items-center justify-around gap-x-12">
+                          <span className="text-xl font-black tracking-tighter text-white">CHILI PIPER</span>
+                          <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 bg-white rounded-md flex items-center justify-center">
+                              <span className="text-black font-bold text-xs">M</span>
+                            </div>
+                            <span className="text-white font-bold tracking-tight">MEMPHIS <span className="text-zinc-500">GRIZZLIES</span></span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="h-6 w-6 bg-blue-500 rounded flex items-center justify-center text-white text-[10px] font-bold">Z</div>
+                            <span className="text-white font-bold">zoominfo</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex gap-0.5">
+                                <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                                <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                                <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                              </div>
+                              <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                            </div>
+                            <span className="text-xl font-bold text-white">Telefónica</span>
+                          </div>
+                          <span className="text-2xl font-black italic text-white">NVIDIA</span>
+                          <div className="flex items-center gap-2">
+                            <svg className="h-8 w-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                            </svg>
+                            <span className="font-bold text-white">GitHub</span>
+                          </div>
+                          <span className="text-xl font-black text-white">iHeartMEDIA</span>
+                          <span className="text-2xl font-black italic text-[#1a1f71] bg-white px-2 rounded">VISA</span>
+                          <span className="text-xl font-bold text-white tracking-widest">AUDACY</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Features Grid Section */}
+              <section className="mb-24 lg:mb-32">
+                <div className="text-center mb-16">
+                  <h2 className="text-4xl font-extrabold text-white mb-4 sm:text-5xl">Everything you need to grow</h2>
+                  <p className="text-lg text-zinc-400">Advanced AI tools to help you create viral content in seconds.</p>
+                </div>
+                
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                  {[
+                    {
+                      title: 'AI Curation',
+                      desc: 'Our AI analyzes your video to find the most engaging hooks and moments.',
+                      icon: (
+                        <svg className="h-6 w-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                        </svg>
+                      )
+                    },
+                    {
+                      title: 'AI Virality Score™',
+                      desc: 'Get an instant score on how likely your clip is to go viral on social media.',
+                      icon: (
+                        <svg className="h-6 w-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                        </svg>
+                      )
+                    },
+                    {
+                      title: 'AI B-Roll',
+                      desc: 'Automatically adds relevant B-roll to enhance storytelling and retention.',
+                      icon: (
+                        <svg className="h-6 w-6 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h14a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      )
+                    },
+                    {
+                      title: 'AI Captions',
+                      desc: 'High-accuracy captions with dynamic animations and keyword highlighting.',
+                      icon: (
+                        <svg className="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                        </svg>
+                      )
+                    }
+                  ].map((feature, i) => (
+                    <div key={i} className="group relative rounded-3xl border border-zinc-800 bg-zinc-900/40 p-8 transition-all hover:border-zinc-700 hover:bg-zinc-900/60">
+                      <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900 border border-zinc-800 group-hover:border-zinc-700 transition-colors">
+                        {feature.icon}
+                      </div>
+                      <h3 className="text-xl font-bold text-white mb-3">{feature.title}</h3>
+                      <p className="text-zinc-400 leading-relaxed">{feature.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* Supported Platforms Section */}
+              <section className="mb-24 lg:mb-32">
+                <div className="rounded-[32px] bg-gradient-to-b from-zinc-900/50 to-transparent border border-zinc-800/50 p-12 lg:p-20">
+                  <div className="lg:flex lg:items-center lg:gap-16">
+                    <div className="lg:w-1/2 mb-12 lg:mb-0">
+                      <h2 className="text-4xl font-extrabold text-white mb-6">Post everywhere. <br /><span className="text-[#6112ff]">Automatically.</span></h2>
+                      <p className="text-lg text-zinc-400 mb-8 leading-relaxed">
+                        Cutnary integrates with all major social platforms. Schedule and post your clips to Instagram, TikTok, YouTube, and Facebook without leaving the app.
+                      </p>
+                      <div className="flex flex-wrap gap-4">
+                        {['Instagram', 'TikTok', 'YouTube', 'Facebook', 'LinkedIn'].map((p) => (
+                          <div key={p} className="px-4 py-2 rounded-full bg-zinc-800 text-zinc-300 text-sm font-medium border border-zinc-700">
+                            {p}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="lg:w-1/2">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-4">
+                          <div className="aspect-square rounded-2xl bg-zinc-800 flex items-center justify-center p-8">
+                            <svg className="w-full h-full text-zinc-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 1.366.062 2.633.332 3.608 1.308.975.975 1.245 2.242 1.308 3.608.058 1.266.07 1.646.07 4.85s-.012 3.584-.07 4.85c-.063 1.366-.333 2.633-1.308 3.608-.975.975-2.242 1.245-3.608 1.308-1.266.058-1.646.07-4.85.07s-3.584-.012-4.85-.07c-1.366-.063-2.633-.333-3.608-1.308-.975-.975-1.245-2.242-1.308-3.608-.058-1.266-.07-1.646-.07-4.85s.012-3.584.07-4.85c.062-1.366.332-2.633 1.308-3.608.975-.975 2.242-1.245 3.608-1.308 1.266-.058 1.646-.07 4.85-.07zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.791-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.209-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                          </div>
+                          <div className="aspect-video rounded-2xl bg-zinc-800 flex items-center justify-center p-8">
+                             <svg className="w-full h-full text-zinc-600" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                          </div>
+                        </div>
+                        <div className="space-y-4 pt-8">
+                           <div className="aspect-[9/16] rounded-2xl bg-[#6112ff] flex items-center justify-center p-8 relative overflow-hidden">
+                              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.2)_0%,transparent_70%)]" />
+                              <svg className="w-12 h-12 text-white relative z-10" fill="currentColor" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.9-.32-1.98-.23-2.81.33-.85.51-1.44 1.43-1.58 2.42-.14 1.01.23 2.08.94 2.82.71.74 1.76 1.13 2.8 1.01 1.05-.06 2.01-.66 2.58-1.53.33-.51.48-1.11.49-1.72.01-4.02-.01-8.03.02-12.05z"/></svg>
+                           </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* FAQ Section */}
+              <section className="mb-24 lg:mb-32">
+                <h2 className="mb-12 text-center text-4xl font-extrabold text-white">Got questions?</h2>
+                <div className="mx-auto max-w-3xl space-y-4">
+                  {FAQS.map((faq, idx) => (
+                    <div
+                      key={idx}
+                      className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/40 transition-all"
+                    >
+                      <button
+                        onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
+                        className="flex w-full items-center justify-between p-5 text-left"
+                      >
+                        <span className="font-bold text-white">{faq.question}</span>
+                        <svg
+                          className={`h-5 w-5 text-zinc-500 transition-transform ${openFaq === idx ? 'rotate-180' : ''}`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      {openFaq === idx && (
+                        <div className="border-t border-zinc-800 p-5 text-zinc-400">
+                          {faq.answer}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* Bottom CTA Section */}
+              <section className="mb-24">
+                <div className="relative overflow-hidden rounded-[32px] border border-zinc-800 bg-zinc-950 p-12 lg:p-24 text-center">
+                  {/* Internal glow */}
+                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(97,18,255,0.1)_0%,transparent_70%)]" />
+                  
+                  <h2 className="relative z-10 mb-10 text-4xl font-extrabold text-white sm:text-5xl lg:text-6xl">
+                    Get started with Cutnary
+                  </h2>
+                  
+                  <div className="relative z-10 mx-auto max-w-2xl">
+                    <form onSubmit={handleUrlSubmit}>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div
+                          className={`relative flex min-w-[300px] flex-1 items-center rounded-xl border bg-zinc-900/60 py-3 pl-4 pr-3 
+                            transition-all duration-300 ${
+                            urlInputFocused
+                              ? 'border-[#6112ff]/60 shadow-[0_0_0_1px_rgba(97,18,255,0.3)]'
+                              : 'border-zinc-800'
+                          }`}
+                        >
+                          <svg className="mr-3 h-5 w-5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.828a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                          </svg>
+                          <input
+                            type="url"
+                            value={videoUrl}
+                            onChange={(e) => {
+                              setVideoUrl(e.target.value)
+                              setPreviewError(null)
+                            }}
+                            onFocus={() => setUrlInputFocused(true)}
+                            onBlur={() => setUrlInputFocused(false)}
+                            placeholder="Drop a video link"
+                            disabled={previewLoading}
+                            className="min-w-0 flex-1 bg-transparent text-white placeholder-zinc-600 outline-none"
+                          />
+                          <button
+                            type="submit"
+                            disabled={previewLoading || !videoUrl.trim()}
+                            className="ml-2 rounded-lg bg-white px-4 py-2 text-sm font-bold text-black transition-all hover:bg-zinc-200 disabled:opacity-50"
+                          >
+                            {previewLoading ? '...' : 'Get free clips'}
+                          </button>
+                        </div>
+                      </div>
+                      {previewError && (
+                        <p className="mt-3 text-sm text-red-400">{previewError}</p>
+                      )}
+                    </form>
+                  </div>
+                </div>
+              </section>
+            </>
           )}
 
           {/* Tools grid – choose AI Clipping or Video Transcript */}

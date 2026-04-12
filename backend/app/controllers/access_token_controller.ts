@@ -4,10 +4,19 @@ import type { HttpContext } from '@adonisjs/core/http'
 import UserTransformer from '#transformers/user_transformer'
 
 export default class AccessTokenController {
-  async store({ request, serialize }: HttpContext) {
+  async store({ request, response, serialize }: HttpContext) {
     const { email, password } = await request.validateUsing(loginValidator)
 
     const user = await User.verifyCredentials(email, password)
+
+    if (!user.emailVerifiedAt && user.authProvider === 'credentials') {
+      return response.status(403).json({
+        message:
+          'Please verify your email before signing in. Check your inbox or request a new verification link.',
+        code: 'EMAIL_NOT_VERIFIED',
+      })
+    }
+
     const token = await User.accessTokens.create(user)
 
     return serialize({

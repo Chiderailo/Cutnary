@@ -3,10 +3,12 @@ import statistics
 import subprocess
 import json
 import time
+from pathlib import Path
 
 import cv2
 
 from face_tracking import get_video_dimensions
+from storage_paths import abs_path_for_media, clips_dir, ensure_storage_dirs
 
 PORTRAIT_W, PORTRAIT_H = 1080, 1920
 DEBUG_LOG_PATH = "c:/Users/iloch/.cursor/projects/cutnary/debug-c6756d.log"
@@ -73,6 +75,8 @@ def _run_clip_ffmpeg(
     output: str,
     shape: str,
 ) -> None:
+    video_path = abs_path_for_media(video_path)
+    output = str(Path(output).resolve())
     command = [
         "ffmpeg",
         "-y",
@@ -127,6 +131,7 @@ def _portrait_crop_filter(video_path: str, start_sec: float, end_sec: float) -> 
     Tracks the main speaking face throughout the clip (samples at 10%, 25%, 40%, 55%, 70%, 85%).
     Uses median face position to avoid outliers. Falls back to center crop if no faces.
     """
+    video_path = abs_path_for_media(video_path)
     dims = get_video_dimensions(video_path)
     if not dims:
         return "scale=1920:1080:force_original_aspect_ratio=decrease,crop=608:1080:656:0,scale=1080:1920"
@@ -194,9 +199,11 @@ def _portrait_crop_filter(video_path: str, start_sec: float, end_sec: float) -> 
 
 
 def generate_portrait_clip(video_path, start, end, name):
-    import os
-    os.makedirs("../storage/clips", exist_ok=True)
-    output = f"../storage/clips/{name}_9x16.mp4"
+    ensure_storage_dirs()
+    cd = clips_dir()
+    cd.mkdir(parents=True, exist_ok=True)
+    output = str(cd / f"{name}_9x16.mp4")
+    video_path = abs_path_for_media(video_path)
     duration = end - start
     crop_filter = _portrait_crop_filter(video_path, start, end)
     filter_chain = f"scale=1920:1080:force_original_aspect_ratio=decrease,{crop_filter}"
@@ -212,9 +219,11 @@ def generate_portrait_clip(video_path, start, end, name):
 
 
 def generate_landscape_clip(video_path, start, end, name):
-    import os
-    os.makedirs("../storage/clips", exist_ok=True)
-    output = f"../storage/clips/{name}_16x9.mp4"
+    ensure_storage_dirs()
+    cd = clips_dir()
+    cd.mkdir(parents=True, exist_ok=True)
+    output = str(cd / f"{name}_16x9.mp4")
+    video_path = abs_path_for_media(video_path)
     duration = end - start
     filter_chain = "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2"
     _run_clip_ffmpeg(
@@ -229,9 +238,11 @@ def generate_landscape_clip(video_path, start, end, name):
 
 
 def generate_square_clip(video_path, start, end, name):
-    import os
-    os.makedirs("../storage/clips", exist_ok=True)
-    output = f"../storage/clips/{name}_1x1.mp4"
+    ensure_storage_dirs()
+    cd = clips_dir()
+    cd.mkdir(parents=True, exist_ok=True)
+    output = str(cd / f"{name}_1x1.mp4")
+    video_path = abs_path_for_media(video_path)
     duration = end - start
     filter_chain = "scale=1920:1080:force_original_aspect_ratio=decrease,scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080"
     _run_clip_ffmpeg(
@@ -246,9 +257,11 @@ def generate_square_clip(video_path, start, end, name):
 
 
 def generate_4_5_clip(video_path, start, end, name):
-    import os
-    os.makedirs("../storage/clips", exist_ok=True)
-    output = f"../storage/clips/{name}_4x5.mp4"
+    ensure_storage_dirs()
+    cd = clips_dir()
+    cd.mkdir(parents=True, exist_ok=True)
+    output = str(cd / f"{name}_4x5.mp4")
+    video_path = abs_path_for_media(video_path)
     duration = end - start
     filter_chain = "scale=1920:1080:force_original_aspect_ratio=decrease,scale=1080:1350:force_original_aspect_ratio=decrease,pad=1080:1350:(ow-iw)/2:(oh-ih)/2"
     _run_clip_ffmpeg(

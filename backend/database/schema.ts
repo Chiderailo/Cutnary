@@ -33,7 +33,7 @@ export class AuthAccessTokenSchema extends BaseModel {
 }
 
 export class ClipSchema extends BaseModel {
-  static $columns = ['createdAt', 'description', 'duration', 'endTime', 'id', 'jobId', 'score', 'startTime', 'updatedAt', 'url', 'viralDescription', 'words'] as const
+  static $columns = ['createdAt', 'description', 'duration', 'endTime', 'id', 'jobId', 'score', 'startTime', 'thumbnailUrl', 'updatedAt', 'url', 'viralDescription', 'words'] as const
   $columns = ClipSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime | null
@@ -51,6 +51,8 @@ export class ClipSchema extends BaseModel {
   declare score: number | null
   @column()
   declare startTime: number | null
+  @column()
+  declare thumbnailUrl: string | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
   @column()
@@ -59,6 +61,21 @@ export class ClipSchema extends BaseModel {
   declare viralDescription: string | null
   @column()
   declare words: any | null
+}
+
+export class FacebookPendingPageSchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'pagesJson', 'userAccessToken', 'userId'] as const
+  $columns = FacebookPendingPageSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare pagesJson: string
+  @column()
+  declare userAccessToken: string
+  @column()
+  declare userId: number
 }
 
 export class JobSchema extends BaseModel {
@@ -84,19 +101,164 @@ export class JobSchema extends BaseModel {
   declare videoUrl: string
 }
 
+export class NotificationSchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'message', 'read', 'type', 'userId'] as const
+  $columns = NotificationSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare message: string
+  @column()
+  declare read: boolean
+  @column()
+  declare type: string
+  @column()
+  declare userId: number | null
+}
+
+export class PlatformCredentialSchema extends BaseModel {
+  static $columns = ['clientId', 'clientSecret', 'createdAt', 'extraConfig', 'id', 'platform', 'updatedAt'] as const
+  $columns = PlatformCredentialSchema.$columns
+  @column()
+  declare clientId: string
+  @column()
+  declare clientSecret: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
+  @column()
+  declare extraConfig: string | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare platform: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
+export class SocialAccountSchema extends BaseModel {
+  static $columns = ['accessToken', 'accountId', 'accountName', 'createdAt', 'expiresAt', 'followerCount', 'id', 'platform', 'profilePictureUrl', 'refreshToken', 'updatedAt', 'userId'] as const
+  $columns = SocialAccountSchema.$columns
+  @column()
+  declare accessToken: string
+  @column()
+  declare accountId: string | null
+  @column()
+  declare accountName: string | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
+  @column.dateTime()
+  declare expiresAt: DateTime | null
+  @column()
+  declare followerCount: number | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare platform: string
+  @column()
+  declare profilePictureUrl: string | null
+  @column()
+  declare refreshToken: string | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number | null
+}
+
+export class SocialCredentialSchema extends BaseModel {
+  static $columns = ['clientId', 'clientSecret', 'createdAt', 'id', 'platform', 'updatedAt', 'userId'] as const
+  $columns = SocialCredentialSchema.$columns
+  @column()
+  declare clientId: string
+  @column()
+  declare clientSecret: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare platform: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number
+}
+
+export class SocialPostSchema extends BaseModel {
+  static $columns = ['caption', 'clipUrl', 'comments', 'createdAt', 'error', 'externalId', 'externalUrl', 'hashtags', 'id', 'likes', 'platform', 'postedAt', 'scheduledAt', 'status', 'thumbnailUrl', 'updatedAt', 'userId', 'views'] as const
+  $columns = SocialPostSchema.$columns
+  @column()
+  declare caption: string | null
+  @column()
+  declare clipUrl: string
+  @column()
+  declare comments: number | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
+  @column()
+  declare error: string | null
+  @column()
+  declare externalId: string | null
+  @column()
+  declare externalUrl: string | null
+  @column()
+  declare hashtags: any | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare likes: number | null
+  @column()
+  declare platform: string
+  @column.dateTime()
+  declare postedAt: DateTime | null
+  @column.dateTime()
+  declare scheduledAt: DateTime | null
+  @column()
+  declare status: string
+  @column()
+  declare thumbnailUrl: string | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number | null
+  @column()
+  declare views: number | null
+}
+
 export class UserSchema extends BaseModel {
-  static $columns = ['createdAt', 'email', 'fullName', 'id', 'password', 'updatedAt'] as const
+  static $columns = ['authProvider', 'createdAt', 'defaultAspectRatio', 'defaultClipLength', 'defaultLanguage', 'email', 'emailVerificationTokenHash', 'emailVerifiedAt', 'fullName', 'googleSub', 'id', 'password', 'profilePictureUrl', 'role', 'subscriptionPlan', 'updatedAt'] as const
   $columns = UserSchema.$columns
+  @column()
+  declare authProvider: string | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column()
+  declare defaultAspectRatio: string | null
+  @column()
+  declare defaultClipLength: string | null
+  @column()
+  declare defaultLanguage: string | null
+  @column()
   declare email: string
   @column()
+  declare emailVerificationTokenHash: string | null
+  @column.dateTime()
+  declare emailVerifiedAt: DateTime | null
+  @column()
   declare fullName: string | null
+  @column()
+  declare googleSub: string | null
   @column({ isPrimary: true })
   declare id: number
   @column({ serializeAs: null })
   declare password: string
+  @column()
+  declare profilePictureUrl: string | null
+  @column()
+  declare role: string
+  @column()
+  declare subscriptionPlan: string | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 }

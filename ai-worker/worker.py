@@ -10,10 +10,12 @@ import os
 import uuid
 import time
 import sys
+from pathlib import Path
 
 import requests
 
 from download import download_video
+from storage_paths import ensure_storage_dirs, gameplay_video_path, thumbnails_dir
 
 logger = logging.getLogger(__name__)
 DEBUG_LOG_PATH = "c:/Users/iloch/.cursor/projects/cutnary/debug-c6756d.log"
@@ -89,7 +91,6 @@ from generate_clips import generate_clips
 from silence_cut import get_video_duration_seconds
 from broll_matcher import insert_broll
 from r2_upload import upload_to_r2
-from subtitles import add_subtitles_to_clip
 from titles import batch_viral_descriptions_and_scores
 from thumbnail_generator import create_thumbnail
 
@@ -167,6 +168,8 @@ def process_video(
     video_id = str(uuid.uuid4())[:8]
 
     try:
+        ensure_storage_dirs()
+
         # Step 1: Download
         _report_status(job_id, backend_url, "downloading")
         print("\nDownloading video...")
@@ -223,16 +226,7 @@ def process_video(
         )
         print("\nClips generated:", clip_paths)
 
-        # Step 5: Add subtitles to each clip
-        _report_status(job_id, backend_url, "adding_subtitles")
-        print("Adding subtitles...")
-        final_paths = []
-        for clip_path in clip_paths:
-            final = add_subtitles_to_clip(clip_path)
-            final_paths.append(final)
-            print(f"[WORKER] Subtitled: {final}")
-
-        clip_paths = final_paths
+        # Keep source clips clean (no burned captions). Editor uses words[] for editable captions.
 
         # OPTIMIZATION: One batch AI call for all clips (viral_description + score)
         segments_data = [
@@ -248,10 +242,10 @@ def process_video(
             # B-roll only for 9:16 portrait
             if aspect_ratio == "9:16":
                 print("\nInserting B-roll for:", clip_path)
-                broll_path = clip_path.replace(".mp4", "_broll.mp4")
+                broll_path = str(Path(clip_path).with_name(f"{Path(clip_path).stem}_broll.mp4"))
                 clip_url = insert_broll(
                     clip_path,
-                    "../assets/gameplay.mp4",
+                    str(gameplay_video_path()),
                     broll_path,
                 )
             else:
@@ -298,12 +292,16 @@ def process_video(
         # Upload each clip to R2; generate thumbnails; fall back to localhost URL if upload fails
         base_url = (backend_url or "").rstrip("/")
         worker_dir = os.path.dirname(os.path.abspath(__file__))
-        storage_root = os.path.normpath(os.path.join(worker_dir, "..", "storage"))
-        thumb_dir = os.path.join(storage_root, "thumbnails")
+        thumb_dir = str(thumbnails_dir())
         os.makedirs(thumb_dir, exist_ok=True)
         clips_payload = []
         for i, c in enumerate(final_clips):
-            local_path = os.path.normpath(os.path.join(worker_dir, "..", c["url"]))
+            raw_url = c["url"]
+            local_path = (
+                os.path.normpath(raw_url)
+                if os.path.isabs(raw_url)
+                else os.path.normpath(os.path.join(worker_dir, "..", raw_url))
+            )
             filename = os.path.basename(c["url"].replace("\\", "/"))
             r2_url = upload_to_r2(local_path, filename)
             if r2_url:

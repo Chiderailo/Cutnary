@@ -11,7 +11,9 @@ Creates ASS files from caption array with style mapping:
 import os
 from pathlib import Path
 
-RENDER_SUB_DIR = "../storage/subtitles/render"
+from storage_paths import storage_root
+
+RENDER_SUB_DIR = str(storage_root() / "subtitles" / "render")
 # PlayRes for common clip sizes (9:16 portrait)
 PLAY_RES_X = 1080
 PLAY_RES_Y = 1920

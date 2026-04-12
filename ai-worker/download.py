@@ -3,8 +3,7 @@ import subprocess
 import sys
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
-VIDEO_DIR = "../storage/videos"
-AUDIO_DIR = "../storage/audio"
+from storage_paths import audio_dir, ensure_storage_dirs, video_dir
 
 # Query params that indicate playlists - strip to download only the single video
 PLAYLIST_PARAMS = frozenset({"list", "start_radio"})
@@ -75,8 +74,10 @@ def download_video(url, video_id, audio_only=False):
     print(f"[DOWNLOAD] module={__file__}")
 
     if audio_only:
-        os.makedirs(AUDIO_DIR, exist_ok=True)
-        output_path = f"{AUDIO_DIR}/{video_id}.mp3"
+        ensure_storage_dirs()
+        vd = audio_dir()
+        vd.mkdir(parents=True, exist_ok=True)
+        output_path = str(vd / f"{video_id}.mp3")
         commands = [
             _yt_dlp_base()
             + ["-x", "--audio-format", "mp3", "--audio-quality", "0", "-o", output_path, url],
@@ -95,8 +96,10 @@ def download_video(url, video_id, audio_only=False):
             ],
         ]
     else:
-        os.makedirs(VIDEO_DIR, exist_ok=True)
-        output_path = f"{VIDEO_DIR}/{video_id}.mp4"
+        ensure_storage_dirs()
+        vd = video_dir()
+        vd.mkdir(parents=True, exist_ok=True)
+        output_path = str(vd / f"{video_id}.mp4")
         # Order matters: try merge formats first, then simpler; add android client when YouTube blocks default web client (often exit 120).
         commands = [
             _yt_dlp_base()

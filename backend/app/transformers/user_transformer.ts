@@ -7,13 +7,19 @@ export default class UserTransformer extends BaseTransformer<User> {
       'id',
       'fullName',
       'email',
+      'emailVerifiedAt',
       'createdAt',
       'updatedAt',
       'initials',
       'profilePictureUrl',
       'authProvider',
       'subscriptionPlan',
+      'role',
     ])
-    return { ...obj, name: obj.fullName }
+    return {
+      ...obj,
+      name: obj.fullName,
+      emailVerified: obj.emailVerifiedAt != null,
+    }
   }
 }

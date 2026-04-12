@@ -5,6 +5,9 @@
 |
 | Auth routes (no auth required):
 |   POST /api/auth/register, POST /api/auth/login
+|   GET  /api/auth/google, GET /api/auth/google/callback
+|   GET  /api/auth/verify-email, POST /api/auth/resend-verification
+|   GET  /api/auth/verification-status
 |
 | Auth routes (require auth):
 |   POST /api/auth/logout, GET /api/auth/me
@@ -22,10 +25,13 @@ import ExplainerController from '#controllers/explainer_controller'
 import HashtagsController from '#controllers/hashtags_controller'
 import JobController from '#controllers/job_controller'
 import NotificationsController from '#controllers/notifications_controller'
+import AdminController from '#controllers/admin_controller'
 import SettingsController from '#controllers/settings_controller'
 import SocialController from '#controllers/social_controller'
 import SocialOAuthController from '#controllers/social_oauth_controller'
 import NewAccountController from '#controllers/new_account_controller'
+import AuthVerificationController from '#controllers/auth_verification_controller'
+import GoogleAuthController from '#controllers/google_auth_controller'
 import ProcessVideoController from '#controllers/process_video_controller'
 import ProfileController from '#controllers/profile_controller'
 import UserController from '#controllers/user_controller'
@@ -37,12 +43,18 @@ import TranscriptController from '#controllers/transcript_controller'
  */
 export function registerApiRoutes() {
   const auth = middleware.auth({ guards: ['api'] })
+  const admin = middleware.admin()
 
   router
     .group(() => {
       // Auth routes (public)
       router.post('auth/register', [NewAccountController, 'store'])
       router.post('auth/login', [AccessTokenController, 'store'])
+      router.get('auth/google', [GoogleAuthController, 'redirect'])
+      router.get('auth/google/callback', [GoogleAuthController, 'callback'])
+      router.get('auth/verify-email', [AuthVerificationController, 'verifyEmail'])
+      router.post('auth/resend-verification', [AuthVerificationController, 'resendVerification'])
+      router.get('auth/verification-status', [AuthVerificationController, 'status'])
 
       // Auth routes (protected)
       router.post('auth/logout', [AccessTokenController, 'destroy']).use(auth)
@@ -97,6 +109,7 @@ export function registerApiRoutes() {
 
       // Protected: social
       router.post('social/connect', [SocialController, 'connect']).use(auth)
+      router.get('social/platform-status', [SocialController, 'platformStatus']).use(auth)
       router.get('social/accounts', [SocialController, 'accounts']).use(auth)
       router.delete('social/accounts/:id', [SocialController, 'disconnectAccount']).use(auth)
       router.post('social/post', [SocialController, 'post']).use(auth)
@@ -106,6 +119,7 @@ export function registerApiRoutes() {
       router.get('social/posts', [SocialController, 'posts']).use(auth)
       router.get('social/scheduled', [SocialController, 'scheduled']).use(auth)
       router.post('social/process-scheduled', [SocialController, 'processScheduled']).use(auth)
+      router.post('social/scheduler/run', [SocialController, 'schedulerRun']).use(auth)
       router.get('social/facebook/pending-pages', [SocialController, 'facebookPendingPages']).use(auth)
       router.post('social/facebook/select-page', [SocialController, 'facebookSelectPage']).use(auth)
 
@@ -114,6 +128,7 @@ export function registerApiRoutes() {
 
       // Notifications
       router.get('notifications', [NotificationsController, 'index']).use(auth)
+      router.post('notifications/read-all', [NotificationsController, 'markAllRead']).use(auth)
       router.post('notifications/:id/read', [NotificationsController, 'markRead']).use(auth)
 
       // OAuth callbacks (no auth - redirect after platform auth)
@@ -121,6 +136,21 @@ export function registerApiRoutes() {
       router.get('social/oauth/tiktok/callback', [SocialOAuthController, 'tiktokCallback'])
       router.get('social/oauth/instagram/callback', [SocialOAuthController, 'instagramCallback'])
       router.get('social/oauth/facebook/callback', [SocialOAuthController, 'facebookCallback'])
+
+      router
+        .group(() => {
+          router.get('admin/stats', [AdminController, 'stats'])
+          router.get('admin/users', [AdminController, 'users'])
+          router.patch('admin/users/:id/role', [AdminController, 'updateRole'])
+          router.delete('admin/users/:id', [AdminController, 'deleteUser'])
+          router.get('admin/social-credentials', [AdminController, 'getSocialCredentials'])
+          router.post('admin/social-credentials', [AdminController, 'saveSocialCredentials'])
+          router.delete('admin/social-credentials/:platform', [AdminController, 'deleteSocialCredentials'])
+          router.get('admin/jobs', [AdminController, 'jobs'])
+          router.get('admin/jobs/:id', [AdminController, 'jobDetail'])
+          router.get('admin/revenue', [AdminController, 'revenue'])
+        })
+        .use([auth, admin])
     })
     .prefix('/api')
 }

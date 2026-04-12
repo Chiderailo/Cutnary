@@ -5,9 +5,12 @@ Samples every N frames for efficiency; returns average face center X.
 
 import cv2
 
+from storage_paths import abs_path_for_media
+
 
 def get_video_dimensions(video_path: str) -> tuple[int, int] | None:
     """Return (width, height) of the video, or None if unable to read."""
+    video_path = abs_path_for_media(video_path)
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         return None
@@ -29,6 +32,7 @@ def detect_face_center(
     If start_sec/end_sec given, only processes that segment and samples every sample_interval frames.
     Returns None if no faces found.
     """
+    video_path = abs_path_for_media(video_path)
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         return None

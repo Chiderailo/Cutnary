@@ -7,6 +7,8 @@ import subprocess
 import json
 import time
 
+from storage_paths import abs_path_for_media
+
 DEBUG_LOG_PATH = "c:/Users/iloch/.cursor/projects/cutnary/debug-c6756d.log"
 DEBUG_SESSION_ID = "c6756d"
 DEBUG_RUN_ID = f"silence-{int(time.time() * 1000)}"
@@ -64,6 +66,7 @@ def _probe_stream_times(path: str) -> dict:
 
 def get_video_duration_seconds(video_path: str) -> float | None:
     """Get video duration in seconds using ffprobe. Returns None on error."""
+    video_path = abs_path_for_media(video_path)
     try:
         result = subprocess.run(
             [
